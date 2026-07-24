@@ -1,0 +1,39 @@
+/* ===================================================
+   RECEIPT CONTAINER
+=================================================== */
+#receipt-content {
+  position: relative;       /* allow pseudo-element layering */
+  max-width: 800px;
+  margin: 20px auto;
+  padding: 25px;
+  background: #ffffff;      /* fallback */
+  border-radius: 12px;
+  border: 1px solid #dce3ea;
+  box-shadow: 0 10px 30px rgba(0,0,0,.1);
+  color: #222;
+  overflow: hidden;         /* keep background inside */
+}
+
+/* ===================================================
+   PHOTO BACKGROUND LAYER
+=================================================== */
+#receipt-content::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("/laundry-bg.jpg") center/cover no-repeat; /* must be in /public */
+  opacity: 0.15;            /* adjust transparency */
+  z-index: -1;              /* behind text */
+}
+
+/* ===================================================
+   HEADER
+=================================================== */
+.receipt-header {
+  background: linear-gradient(135deg,#1565c0,#42a5f5);
+  color: white;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;       /* keep header centered */
+  margin-bottom: 20px;
+}
