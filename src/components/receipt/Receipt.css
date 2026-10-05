@@ -21,7 +21,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: url("/laundry-bg.jpg") center/cover no-repeat; /* must be in /public */
+  background: url("/laundry.jfif") center/cover no-repeat; /* must be in /public */
   opacity: 0.15;            /* adjust transparency */
   z-index: -1;              /* behind text */
 }
