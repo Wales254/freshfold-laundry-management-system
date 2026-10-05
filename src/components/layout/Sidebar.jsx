@@ -12,69 +12,99 @@ import {
 } from "@mui/material";
 
 import { NavLink } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import LocalLaundryServiceIcon from "@mui/icons-material/LocalLaundryService";
 import PeopleIcon from "@mui/icons-material/People";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
-import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
+import SellIcon from "@mui/icons-material/Sell";
+import PaymentsIcon from "@mui/icons-material/Payments";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import SettingsIcon from "@mui/icons-material/Settings";
+import GroupIcon from "@mui/icons-material/Group";
 
 const drawerWidth = 250;
 
-const menuItems = [
-  {
-    text: "Dashboard",
-    icon: <DashboardIcon />,
-    path: "/",
-  },
-  {
-    text: "Orders",
-    icon: <LocalLaundryServiceIcon />,
-    path: "/orders",
-  },
-  {
-    text: "Customers",
-    icon: <PeopleIcon />,
-    path: "/customers",
-  },
-  {
-    text: "Inventory",
-    icon: <Inventory2Icon />,
-    path: "/inventory",
-  },
-  {
-    text: "Pricing",
-    icon: <AttachMoneyIcon />,
-    path: "/pricing",
-  },
-  {
-    text: "Receipts",
-    icon: <ReceiptLongIcon />,
-    path: "/receipts",
-  },
-  {
-    text: "Reports",
-    icon: <AssessmentIcon />,
-    path: "/reports",
-  },
-  {
-    text: "Settings",
-    icon: <SettingsIcon />,
-    path: "/settings",
-  },
-];
-
 function Sidebar() {
+  const user = useSelector((state) => state.auth.user);
+
+  const role = user?.role || "Guest";
+
+  const menuItems = [
+    {
+      text: "Dashboard",
+      icon: <DashboardIcon />,
+      path: "/",
+      roles: ["Admin", "Manager", "Cashier", "Attendant"],
+    },
+    {
+      text: "Orders",
+      icon: <LocalLaundryServiceIcon />,
+      path: "/orders",
+      roles: ["Admin", "Manager", "Cashier", "Attendant"],
+    },
+    {
+      text: "Customers",
+      icon: <PeopleIcon />,
+      path: "/customers",
+      roles: ["Admin", "Manager", "Cashier"],
+    },
+    {
+      text: "Inventory",
+      icon: <Inventory2Icon />,
+      path: "/inventory",
+      roles: ["Admin", "Manager"],
+    },
+    {
+      text: "Pricing",
+      icon: <SellIcon />,
+      path: "/pricing",
+      roles: ["Admin", "Manager"],
+    },
+    {
+      text: "Payments",
+      icon: <PaymentsIcon />,
+      path: "/payments",
+      roles: ["Admin", "Manager", "Cashier"],
+    },
+    {
+      text: "Receipts",
+      icon: <ReceiptLongIcon />,
+      path: "/receipts",
+      roles: ["Admin", "Manager", "Cashier"],
+    },
+    {
+      text: "Reports",
+      icon: <AssessmentIcon />,
+      path: "/reports",
+      roles: ["Admin", "Manager"],
+    },
+    {
+      text: "Users",
+      icon: <GroupIcon />,
+      path: "/users",
+      roles: ["Admin"],
+    },
+    {
+      text: "Settings",
+      icon: <SettingsIcon />,
+      path: "/settings",
+      roles: ["Admin"],
+    },
+  ];
+
+  const allowedMenus = menuItems.filter((item) =>
+    item.roles.includes(role)
+  );
+
   return (
     <Drawer
       variant="permanent"
       sx={{
         width: drawerWidth,
         flexShrink: 0,
-
         "& .MuiDrawer-paper": {
           width: drawerWidth,
           boxSizing: "border-box",
@@ -99,6 +129,23 @@ function Sidebar() {
           >
             Laundry Management
           </Typography>
+
+          <Typography
+            variant="body2"
+            sx={{
+              mt: 1,
+              fontWeight: "bold",
+            }}
+          >
+            {user?.name}
+          </Typography>
+
+          <Typography
+            variant="caption"
+            color="primary"
+          >
+            {role}
+          </Typography>
         </Box>
       </Toolbar>
 
@@ -110,7 +157,7 @@ function Sidebar() {
           py: 2,
         }}
       >
-        {menuItems.map((item) => (
+        {allowedMenus.map((item) => (
           <ListItem
             key={item.text}
             disablePadding
@@ -123,7 +170,6 @@ function Sidebar() {
               sx={{
                 borderRadius: 2,
                 px: 2,
-
                 transition: "all .25s ease",
 
                 "&:hover": {

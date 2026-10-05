@@ -33,18 +33,24 @@ function OrderTable({
   serviceFilter,
   sortBy,
 }) {
-  const orders = useSelector((state) => state.orders.orders);
+  const orders = useSelector(
+    (state) => state.orders.orders
+  );
 
   const dispatch = useDispatch();
 
-  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedOrder, setSelectedOrder] =
+    useState(null);
 
   const [openEdit, setOpenEdit] = useState(false);
-  const [openReceipt, setOpenReceipt] = useState(false);
-  const [openPayment, setOpenPayment] = useState(false);
+  const [openReceipt, setOpenReceipt] =
+    useState(false);
+  const [openPayment, setOpenPayment] =
+    useState(false);
 
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [rowsPerPage, setRowsPerPage] =
+    useState(5);
 
   const handleEdit = (order) => {
     setSelectedOrder(order);
@@ -69,9 +75,13 @@ function OrderTable({
     const term = search.toLowerCase();
 
     return (
-      order.customer.toLowerCase().includes(term) ||
+      order.customer
+        .toLowerCase()
+        .includes(term) ||
       order.phone.toLowerCase().includes(term) ||
-      order.service.toLowerCase().includes(term) ||
+      order.service
+        .toLowerCase()
+        .includes(term) ||
       order.status.toLowerCase().includes(term) ||
       order.id.toString().includes(term)
     );
@@ -103,11 +113,15 @@ function OrderTable({
 
   switch (sortBy) {
     case "Newest":
-      filteredOrders.sort((a, b) => b.id - a.id);
+      filteredOrders.sort(
+        (a, b) => b.id - a.id
+      );
       break;
 
     case "Oldest":
-      filteredOrders.sort((a, b) => a.id - b.id);
+      filteredOrders.sort(
+        (a, b) => a.id - b.id
+      );
       break;
 
     case "A-Z":
@@ -126,10 +140,6 @@ function OrderTable({
       break;
   }
 
-  // ============================
-  // PAGINATION
-  // ============================
-
   const paginatedOrders = filteredOrders.slice(
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
@@ -137,12 +147,13 @@ function OrderTable({
 
   return (
     <>
-      <TableContainer component={Paper} elevation={3}>
+      <TableContainer
+        component={Paper}
+        elevation={3}
+      >
         <Table>
-
           <TableHead>
             <TableRow>
-
               <TableCell>
                 <strong>ID</strong>
               </TableCell>
@@ -172,50 +183,82 @@ function OrderTable({
               </TableCell>
 
               <TableCell>
-                <strong>Payment</strong>
+                <strong>Paid</strong>
+              </TableCell>
+
+              <TableCell>
+                <strong>Balance</strong>
+              </TableCell>
+
+              <TableCell>
+                <strong>Payment Status</strong>
               </TableCell>
 
               <TableCell align="center">
                 <strong>Actions</strong>
               </TableCell>
-
             </TableRow>
           </TableHead>
 
           <TableBody>
-
             {paginatedOrders.length > 0 ? (
-
               paginatedOrders.map((order) => (
-
-                <TableRow key={order.id} hover>
-
-                  <TableCell>{order.id}</TableCell>
-
-                  <TableCell>{order.customer}</TableCell>
-
-                  <TableCell>{order.phone}</TableCell>
-
-                  <TableCell>{order.service}</TableCell>
-
-                  <TableCell>{order.quantity}</TableCell>
-
+                <TableRow
+                  key={order.id}
+                  hover
+                >
                   <TableCell>
-                    <StatusWorkflow order={order} />
+                    {order.id}
                   </TableCell>
 
                   <TableCell>
-                    <strong>KES {order.total}</strong>
+                    {order.customer}
+                  </TableCell>
+
+                  <TableCell>
+                    {order.phone}
+                  </TableCell>
+
+                  <TableCell>
+                    {order.service}
+                  </TableCell>
+
+                  <TableCell>
+                    {order.quantity}
+                  </TableCell>
+
+                  <TableCell>
+                    <StatusWorkflow
+                      order={order}
+                    />
+                  </TableCell>
+
+                  <TableCell>
+                    <strong>
+                      KES {order.total}
+                    </strong>
+                  </TableCell>
+
+                  <TableCell>
+                    KES {order.amountPaid}
+                  </TableCell>
+
+                  <TableCell>
+                    KES {order.balance}
                   </TableCell>
 
                   <TableCell>
                     <Chip
-                      label={order.paymentStatus}
+                      label={
+                        order.paymentStatus
+                      }
                       size="small"
                       color={
-                        order.paymentStatus === "Paid"
+                        order.paymentStatus ===
+                        "Paid"
                           ? "success"
-                          : order.paymentStatus === "Partial"
+                          : order.paymentStatus ===
+                            "Partial"
                           ? "warning"
                           : "error"
                       }
@@ -228,12 +271,16 @@ function OrderTable({
                       spacing={1}
                       justifyContent="center"
                     >
-
                       <IconButton
                         color="success"
                         title="Receive Payment"
-                        onClick={() => handlePayment(order)}
-                        disabled={order.paymentStatus === "Paid"}
+                        onClick={() =>
+                          handlePayment(order)
+                        }
+                        disabled={
+                          order.paymentStatus ===
+                          "Paid"
+                        }
                       >
                         <PaymentsIcon />
                       </IconButton>
@@ -241,7 +288,9 @@ function OrderTable({
                       <IconButton
                         color="primary"
                         title="Edit Order"
-                        onClick={() => handleEdit(order)}
+                        onClick={() =>
+                          handleEdit(order)
+                        }
                       >
                         <EditIcon />
                       </IconButton>
@@ -249,7 +298,9 @@ function OrderTable({
                       <IconButton
                         color="secondary"
                         title="Receipt"
-                        onClick={() => handleReceipt(order)}
+                        onClick={() =>
+                          handleReceipt(order)
+                        }
                       >
                         <ReceiptLongIcon />
                       </IconButton>
@@ -258,31 +309,30 @@ function OrderTable({
                         color="error"
                         title="Delete Order"
                         onClick={() =>
-                          dispatch(deleteOrder(order.id))
+                          dispatch(
+                            deleteOrder(
+                              order.id
+                            )
+                          )
                         }
                       >
                         <DeleteIcon />
                       </IconButton>
-
                     </Stack>
                   </TableCell>
-
                 </TableRow>
-
               ))
-
             ) : (
-
               <TableRow>
-                <TableCell colSpan={9} align="center">
+                <TableCell
+                  colSpan={11}
+                  align="center"
+                >
                   No orders found.
                 </TableCell>
               </TableRow>
-
             )}
-
           </TableBody>
-
         </Table>
 
         <TablePagination
@@ -296,29 +346,37 @@ function OrderTable({
           }
           onRowsPerPageChange={(event) => {
             setRowsPerPage(
-              parseInt(event.target.value, 10)
+              parseInt(
+                event.target.value,
+                10
+              )
             );
             setPage(0);
           }}
         />
-
       </TableContainer>
 
       <PaymentDialog
         open={openPayment}
-        handleClose={() => setOpenPayment(false)}
+        handleClose={() =>
+          setOpenPayment(false)
+        }
         order={selectedOrder}
       />
 
       <ReceiptDialog
         open={openReceipt}
-        handleClose={() => setOpenReceipt(false)}
+        handleClose={() =>
+          setOpenReceipt(false)
+        }
         order={selectedOrder}
       />
 
       <EditOrderDialog
         open={openEdit}
-        handleClose={() => setOpenEdit(false)}
+        handleClose={() =>
+          setOpenEdit(false)
+        }
         order={selectedOrder}
       />
     </>

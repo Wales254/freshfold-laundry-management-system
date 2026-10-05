@@ -3,11 +3,8 @@ import { createSlice } from "@reduxjs/toolkit";
 const initialState = {
   isAuthenticated: false,
   loading: false,
-
   user: null,
-
   token: null,
-
   error: null,
 };
 
@@ -28,21 +25,22 @@ const authSlice = createSlice({
     // Login Success
     // ==========================
     loginSuccess: (state, action) => {
-  state.loading = false;
-  state.isAuthenticated = true;
+      state.loading = false;
+      state.isAuthenticated = true;
 
-  state.user = action.payload.user;
-  state.token = action.payload.token;
-  state.error = null;
+      state.user = action.payload.user;
+      state.token = action.payload.token;
+      state.error = null;
 
-  localStorage.setItem(
-    "auth",
-    JSON.stringify({
-      user: action.payload.user,
-      token: action.payload.token,
-    })
-  );
-},
+      // Save login session
+      localStorage.setItem(
+        "auth",
+        JSON.stringify({
+          user: action.payload.user,
+          token: action.payload.token,
+        })
+      );
+    },
 
     // ==========================
     // Login Failed
@@ -51,7 +49,6 @@ const authSlice = createSlice({
       state.loading = false;
       state.error = action.payload;
       state.isAuthenticated = false;
-
       state.user = null;
       state.token = null;
     },
@@ -60,17 +57,17 @@ const authSlice = createSlice({
     // Logout
     // ==========================
     logout: (state) => {
-  state.isAuthenticated = false;
-  state.loading = false;
-  state.user = null;
-  state.token = null;
-  state.error = null;
+      state.isAuthenticated = false;
+      state.loading = false;
+      state.user = null;
+      state.token = null;
+      state.error = null;
 
-  localStorage.removeItem("auth");
-},
+      localStorage.removeItem("auth");
+    },
 
     // ==========================
-    // Update Profile
+    // Update User Profile
     // ==========================
     updateProfile: (state, action) => {
       if (state.user) {
@@ -78,6 +75,15 @@ const authSlice = createSlice({
           ...state.user,
           ...action.payload,
         };
+
+        // Keep localStorage synchronized
+        localStorage.setItem(
+          "auth",
+          JSON.stringify({
+            user: state.user,
+            token: state.token,
+          })
+        );
       }
     },
   },

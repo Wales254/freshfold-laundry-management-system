@@ -7,7 +7,7 @@ import {
   formatDateTime,
 } from "../../utils/receiptUtils";
 
-const generateReceiptPDF = (order) => {
+const generateReceiptPDF = (order, payment) => {
   const doc = new jsPDF();
 
   const receiptNumber =
@@ -64,7 +64,7 @@ const generateReceiptPDF = (order) => {
 
   doc.text(
     `Date: ${formatDateTime(
-      order.paymentDate || new Date()
+      payment?.date || new Date()
     )}`,
     14,
     y
@@ -101,10 +101,10 @@ const generateReceiptPDF = (order) => {
   // ORDER DETAILS
   // ===========================
 
-  const unitPrice =
-    order.quantity > 0
-      ? order.total / order.quantity
-      : order.total;
+  const services =
+    order.services && order.services.length
+      ? order.services
+      : [order];
 
   autoTable(doc, {
     startY: y + 10,
@@ -118,14 +118,16 @@ const generateReceiptPDF = (order) => {
       ],
     ],
 
-    body: [
-      [
-        order.service,
-        order.quantity,
-        formatCurrency(unitPrice),
-        formatCurrency(order.total),
-      ],
-    ],
+    body: services.map((item) => [
+      item.service,
+      item.quantity,
+      formatCurrency(
+        item.quantity > 0
+          ? item.total / item.quantity
+          : item.total
+      ),
+      formatCurrency(item.total),
+    ]),
 
     headStyles: {
       fillColor: [25, 118, 210],
@@ -155,7 +157,11 @@ const generateReceiptPDF = (order) => {
 
   y += 8;
 
-  doc.text(`Current Status: ${order.status}`, 14, y);
+  doc.text(
+    `Current Status: ${order.status}`,
+    14,
+    y
+  );
 
   y += 8;
 
@@ -172,7 +178,6 @@ const generateReceiptPDF = (order) => {
   y += 16;
 
   doc.setFont("helvetica", "bold");
-
   doc.text("Payment Information", 14, y);
 
   doc.setFont("helvetica", "normal");
@@ -189,7 +194,7 @@ const generateReceiptPDF = (order) => {
 
   doc.text(
     `Amount Paid: ${formatCurrency(
-      order.amountPaid ?? 0
+      order.amountPaid
     )}`,
     14,
     y
@@ -199,7 +204,7 @@ const generateReceiptPDF = (order) => {
 
   doc.text(
     `Balance: ${formatCurrency(
-      order.balance ?? order.total
+      order.balance
     )}`,
     14,
     y
@@ -209,7 +214,7 @@ const generateReceiptPDF = (order) => {
 
   doc.text(
     `Change: ${formatCurrency(
-      order.change ?? 0
+      order.change
     )}`,
     14,
     y
@@ -218,9 +223,7 @@ const generateReceiptPDF = (order) => {
   y += 8;
 
   doc.text(
-    `Payment Status: ${
-      order.paymentStatus || "Pending"
-    }`,
+    `Payment Status: ${order.paymentStatus}`,
     14,
     y
   );
@@ -229,20 +232,41 @@ const generateReceiptPDF = (order) => {
 
   doc.text(
     `Payment Method: ${
-      order.paymentMethod || "Cash"
+      payment?.method || "N/A"
+    }`,
+    14,
+    y
+  );
+
+  y += 8;
+
+  doc.text(
+    `Transaction Code: ${
+      payment?.transactionCode || "N/A"
+    }`,
+    14,
+    y
+  );
+
+  y += 8;
+
+  doc.text(
+    `Payment Date: ${
+      payment?.date
+        ? formatDateTime(payment.date)
+        : "N/A"
     }`,
     14,
     y
   );
 
   // ===========================
-  // TERMS
+  // TERMS & CONDITIONS
   // ===========================
 
   y += 18;
 
   doc.setFont("helvetica", "bold");
-
   doc.text("Terms & Conditions", 14, y);
 
   doc.setFont("helvetica", "normal");
@@ -287,13 +311,11 @@ const generateReceiptPDF = (order) => {
   y += 22;
 
   doc.line(20, y, 80, y);
-
   doc.line(130, y, 190, y);
 
   y += 6;
 
   doc.text("Customer Signature", 25, y);
-
   doc.text("Cashier Signature", 135, y);
 
   // ===========================

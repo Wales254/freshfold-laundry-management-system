@@ -26,9 +26,7 @@ import {
   VisibilityOff,
 } from "@mui/icons-material";
 
-
 function LoginForm() {
-
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -36,10 +34,12 @@ function LoginForm() {
     (state) => state.auth
   );
 
+  const users = useSelector(
+    (state) => state.users.users
+  );
 
   const [showPassword, setShowPassword] =
     useState(false);
-
 
   const [form, setForm] = useState({
     email: "",
@@ -47,16 +47,13 @@ function LoginForm() {
     remember: false,
   });
 
-
   const handleChange = (e) => {
-
     const {
       name,
       value,
       checked,
-      type
+      type,
     } = e.target;
-
 
     setForm({
       ...form,
@@ -67,80 +64,64 @@ function LoginForm() {
     });
   };
 
-
   const handleLogin = () => {
-
     dispatch(loginStart());
 
+    const user = users.find(
+      (u) =>
+        u.email.toLowerCase() ===
+          form.email.toLowerCase() &&
+        u.password === form.password
+    );
 
-    // Temporary login until backend is connected
-
-    if (
-      form.email === "admin@freshfold.com" &&
-      form.password === "123456"
-    ) {
-
-
-      const userData = {
-
-        token: "demo-token",
-
-        user: {
-          id: 1,
-          name: "Administrator",
-          email: form.email,
-          role: "Admin",
-        },
-
-      };
-
-
-      // Update Redux state
-      dispatch(
-        loginSuccess(userData)
-      );
-
-
-      // Save login session
-      localStorage.setItem(
-        "auth",
-        JSON.stringify(userData)
-      );
-
-
-      alert("Login Successful");
-
-
-      // Dashboard is the index route
-      navigate("/");
-
-
-    } else {
-
-
+    if (!user) {
       dispatch(
         loginFailure(
           "Invalid email or password."
         )
       );
-
+      return;
     }
 
+    if (user.status !== "Active") {
+      dispatch(
+        loginFailure(
+          "Your account has been suspended. Please contact the administrator."
+        )
+      );
+      return;
+    }
+
+    const userData = {
+      token: "demo-token",
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        status: user.status,
+      },
+    };
+
+    dispatch(loginSuccess(userData));
+
+    localStorage.setItem(
+      "auth",
+      JSON.stringify(userData)
+    );
+
+    navigate("/");
   };
 
-
   return (
-
     <Box>
-
-
       <Typography
         variant="h4"
         fontWeight="bold"
       >
         Sign In
       </Typography>
-
 
       <Typography
         color="text.secondary"
@@ -149,211 +130,105 @@ function LoginForm() {
         Enter your account credentials.
       </Typography>
 
-
-
       <TextField
-
         fullWidth
-
         margin="normal"
-
         label="Email"
-
         name="email"
-
         value={form.email}
-
         onChange={handleChange}
-
       />
 
-
-
       <TextField
-
         fullWidth
-
         margin="normal"
-
         label="Password"
-
         name="password"
-
         type={
           showPassword
             ? "text"
             : "password"
         }
-
         value={form.password}
-
         onChange={handleChange}
-
-
         InputProps={{
-
-          endAdornment:(
-
+          endAdornment: (
             <InputAdornment position="end">
-
               <IconButton
-
                 onClick={() =>
                   setShowPassword(
                     !showPassword
                   )
                 }
-
               >
-
                 {showPassword ? (
-
                   <VisibilityOff />
-
                 ) : (
-
                   <Visibility />
-
                 )}
-
               </IconButton>
-
-
             </InputAdornment>
-
           ),
-
         }}
-
       />
 
-
-
-
       <Box
-
         display="flex"
-
         justifyContent="space-between"
-
         alignItems="center"
-
         mt={2}
-
       >
-
-
         <FormControlLabel
-
           control={
-
             <Checkbox
-
               checked={form.remember}
-
               name="remember"
-
               onChange={handleChange}
-
             />
-
           }
-
           label="Remember Me"
-
         />
 
-
-
         <Link
-
           href="/forgot-password"
-
           underline="hover"
-
         >
-
           Forgot Password?
-
         </Link>
-
-
       </Box>
 
-
-
-
       {error && (
-
         <Typography
-
           color="error"
-
           sx={{ mt: 2 }}
-
         >
-
           {error}
-
         </Typography>
-
       )}
 
-
-
-
-
       <Button
-
         fullWidth
-
         variant="contained"
-
         size="large"
-
         sx={{
-
           mt: 4,
-
           py: 1.5,
-
           borderRadius: 2,
-
         }}
-
         onClick={handleLogin}
-
         disabled={loading}
-
       >
-
-
         {loading ? (
-
           <CircularProgress
-
             size={24}
-
             color="inherit"
-
           />
-
         ) : (
-
           "Sign In"
-
         )}
-
-
       </Button>
-
-
-
     </Box>
-
   );
-
 }
-
 
 export default LoginForm;

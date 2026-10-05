@@ -29,15 +29,20 @@ function ReceiptDialog({
     state.orders.orders.find((o) => o.id === order?.id)
   );
 
+  if (!latestOrder) return null;
+
+  // Latest payment made
+  const latestPayment =
+    latestOrder.payments?.[
+      latestOrder.payments.length - 1
+    ] || null;
+
   const receiptNumber = useMemo(() => {
-    if (!latestOrder) return "";
     return (
       latestOrder.receiptNo ||
       generateReceiptNumber(latestOrder.id)
     );
   }, [latestOrder]);
-
-  if (!latestOrder) return null;
 
   const handlePrint = () => {
     const receipt = document.getElementById(
@@ -108,9 +113,7 @@ function ReceiptDialog({
       </head>
 
       <body>
-
         ${receipt.innerHTML}
-
       </body>
       </html>
     `);
@@ -129,8 +132,6 @@ function ReceiptDialog({
       fullWidth
       scroll="paper"
     >
-      {/* Header */}
-
       <DialogTitle
         sx={{
           display: "flex",
@@ -140,7 +141,10 @@ function ReceiptDialog({
         }}
       >
         <Box>
-          <Typography variant="h6" fontWeight="bold">
+          <Typography
+            variant="h6"
+            fontWeight="bold"
+          >
             FreshFold Laundry Receipt
           </Typography>
 
@@ -164,8 +168,6 @@ function ReceiptDialog({
         </Button>
       </DialogTitle>
 
-      {/* Preview */}
-
       <DialogContent dividers>
         <Typography
           variant="body2"
@@ -176,10 +178,11 @@ function ReceiptDialog({
           downloading it as a PDF.
         </Typography>
 
-        <ReceiptContent order={latestOrder} />
+        <ReceiptContent
+          order={latestOrder}
+          payment={latestPayment}
+        />
       </DialogContent>
-
-      {/* Footer Buttons */}
 
       <DialogActions
         sx={{
@@ -203,7 +206,10 @@ function ReceiptDialog({
             color="error"
             startIcon={<PictureAsPdfIcon />}
             onClick={() =>
-              generateReceiptPDF(latestOrder)
+              generateReceiptPDF(
+                latestOrder,
+                latestPayment
+              )
             }
           >
             Download PDF

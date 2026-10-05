@@ -14,29 +14,33 @@ import {
   Legend,
 } from "recharts";
 
-const COLORS = [
-  "#42A5F5", // Received
-  "#FFA726", // Washing
-  "#AB47BC", // Drying
-  "#26C6DA", // Ironing
-  "#66BB6A", // Ready
-  "#5C6BC0", // Delivered
+const STATUS_COLORS = {
+  Received: "#42A5F5",
+  Washing: "#FFA726",
+  Drying: "#AB47BC",
+  Ironing: "#26C6DA",
+  Ready: "#66BB6A",
+  Delivered: "#5C6BC0",
+};
+
+const ORDER_STATUS = [
+  "Received",
+  "Washing",
+  "Drying",
+  "Ironing",
+  "Ready",
+  "Delivered",
 ];
 
 function StatusChart() {
   const orders = useSelector((state) => state.orders.orders);
 
-  const statusCounts = {};
-
-  orders.forEach((order) => {
-    statusCounts[order.status] =
-      (statusCounts[order.status] || 0) + 1;
-  });
-
-  const data = Object.keys(statusCounts).map((status) => ({
+  const data = ORDER_STATUS.map((status) => ({
     name: status,
-    value: statusCounts[status],
-  }));
+    value: orders.filter(
+      (order) => order.status === status
+    ).length,
+  })).filter((item) => item.value > 0);
 
   return (
     <Paper
@@ -50,32 +54,46 @@ function StatusChart() {
       <Typography
         variant="h6"
         fontWeight="bold"
-        mb={2}
+        sx={{ mb: 1 }}
       >
         Order Status Distribution
       </Typography>
 
-      <ResponsiveContainer width="100%" height="90%">
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="value"
-            nameKey="name"
-            outerRadius={130}
-            label
-          >
-            {data.map((entry, index) => (
-              <Cell
-                key={entry.name}
-                fill={COLORS[index % COLORS.length]}
-              />
-            ))}
-          </Pie>
+      {data.length === 0 ? (
+        <Typography
+          color="text.secondary"
+          sx={{
+            height: "85%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          No orders available
+        </Typography>
+      ) : (
+        <ResponsiveContainer width="100%" height="90%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="name"
+              outerRadius={130}
+              label
+            >
+              {data.map((entry) => (
+                <Cell
+                  key={entry.name}
+                  fill={STATUS_COLORS[entry.name]}
+                />
+              ))}
+            </Pie>
 
-          <Tooltip />
-          <Legend />
-        </PieChart>
-      </ResponsiveContainer>
+            <Tooltip />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      )}
     </Paper>
   );
 }

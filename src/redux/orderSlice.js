@@ -10,16 +10,20 @@ const initialState = {
       quantity: 5,
       total: 25,
       status: "Received",
+
+      createdAt: "2026-07-10",
       deliveryDate: "2026-07-12",
 
-      // Payment Information
+      // Payment Summary
       paymentStatus: "Pending",
-      paymentMethod: "",
       amountPaid: 0,
       balance: 25,
       change: 0,
-      paymentDate: "",
+
+      // Payment History
+      payments: [],
     },
+
     {
       id: 2,
       customer: "Jane Smith",
@@ -28,15 +32,16 @@ const initialState = {
       quantity: 3,
       total: 40,
       status: "Received",
+
+      createdAt: "2026-07-10",
       deliveryDate: "2026-07-11",
 
-      // Payment Information
       paymentStatus: "Pending",
-      paymentMethod: "",
       amountPaid: 0,
       balance: 40,
       change: 0,
-      paymentDate: "",
+
+      payments: [],
     },
   ],
 };
@@ -46,25 +51,38 @@ const orderSlice = createSlice({
   initialState,
 
   reducers: {
-    // =============================
+    // =====================================
     // Add Order
-    // =============================
+    // =====================================
     addOrder: (state, action) => {
-      state.orders.push(action.payload);
+      state.orders.push({
+        ...action.payload,
+
+        createdAt: new Date()
+          .toISOString()
+          .split("T")[0],
+
+        paymentStatus: "Pending",
+        amountPaid: 0,
+        balance: Number(action.payload.total),
+        change: 0,
+
+        payments: [],
+      });
     },
 
-    // =============================
+    // =====================================
     // Delete Order
-    // =============================
+    // =====================================
     deleteOrder: (state, action) => {
       state.orders = state.orders.filter(
         (order) => order.id !== action.payload
       );
     },
 
-    // =============================
+    // =====================================
     // Update Order Status
-    // =============================
+    // =====================================
     updateStatus: (state, action) => {
       const { id, status } = action.payload;
 
@@ -77,9 +95,9 @@ const orderSlice = createSlice({
       }
     },
 
-    // =============================
+    // =====================================
     // Edit Order
-    // =============================
+    // =====================================
     updateOrder: (state, action) => {
       const updatedOrder = action.payload;
 
@@ -92,48 +110,74 @@ const orderSlice = createSlice({
       }
     },
 
-    // =============================
-    // Update Payment
-    // =============================
+    // =====================================
+    // Receive Payment
+    // =====================================
     updatePayment: (state, action) => {
       const {
         id,
         paymentMethod,
         amountPaid,
+        transactionCode,
       } = action.payload;
 
       const order = state.orders.find(
         (order) => order.id === id
       );
 
-      if (order) {
-        const total = Number(order.total);
-        const paid = Number(amountPaid);
+      if (!order) return;
 
-        order.paymentMethod = paymentMethod;
-        order.amountPaid = paid;
+      const paymentAmount = Number(amountPaid);
 
-        if (paid >= total) {
-          // Fully paid or overpaid
-          order.balance = 0;
-          order.change = paid - total;
-          order.paymentStatus = "Paid";
-        } else if (paid > 0) {
-          // Partially paid
-          order.balance = total - paid;
-          order.change = 0;
-          order.paymentStatus = "Partial";
-        } else {
-          // No payment made
-          order.balance = total;
-          order.change = 0;
-          order.paymentStatus = "Pending";
-        }
+      // Save payment history
+      order.payments.push({
+        id: Date.now(),
+        amount: paymentAmount,
+        method: paymentMethod,
+        transactionCode: transactionCode || "",
+        date: new Date().toISOString(),
+      });
 
-        order.paymentDate = new Date()
-          .toISOString()
-          .split("T")[0];
+      // Calculate total paid
+      const totalPaid = order.payments.reduce(
+        (sum, payment) => sum + Number(payment.amount),
+        0
+      );
+
+      order.amountPaid = totalPaid;
+
+      const total = Number(order.total);
+
+      if (totalPaid >= total) {
+        order.balance = 0;
+        order.change = totalPaid - total;
+        order.paymentStatus = "Paid";
+      } else if (totalPaid > 0) {
+        order.balance = total - totalPaid;
+        order.change = 0;
+        order.paymentStatus = "Partial";
+      } else {
+        order.balance = total;
+        order.change = 0;
+        order.paymentStatus = "Pending";
       }
+    },
+
+    // =====================================
+    // Clear Payments (Optional)
+    // =====================================
+    clearPayments: (state, action) => {
+      const order = state.orders.find(
+        (order) => order.id === action.payload
+      );
+
+      if (!order) return;
+
+      order.payments = [];
+      order.amountPaid = 0;
+      order.balance = Number(order.total);
+      order.change = 0;
+      order.paymentStatus = "Pending";
     },
   },
 });
@@ -144,6 +188,7 @@ export const {
   updateStatus,
   updateOrder,
   updatePayment,
+  clearPayments,
 } = orderSlice.actions;
 
 export default orderSlice.reducer;
