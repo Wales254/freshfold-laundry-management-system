@@ -13,11 +13,11 @@ function DashboardCards() {
   const totalOrders = orders.length;
 
   const totalCustomers = new Set(
-    orders.map((order) => order.phone)
+    orders.map((order) => order.phone).filter(Boolean)
   ).size;
 
   const totalRevenue = orders.reduce(
-    (sum, order) => sum + Number(order.total),
+    (sum, order) => sum + (Number(order.total) || 0),
     0
   );
 
@@ -28,112 +28,181 @@ function DashboardCards() {
   const cards = [
     {
       title: "Total Orders",
-      value: totalOrders,
-      icon: <ShoppingBasketIcon sx={{ fontSize: 34 }} />,
+      value: totalOrders.toLocaleString(),
+      icon: <ShoppingBasketIcon />,
       color: "#1976d2",
+      background: "#eaf3ff",
       trend: "+8%",
     },
     {
-      title: "Customers",
-      value: totalCustomers,
-      icon: <PeopleIcon sx={{ fontSize: 34 }} />,
-      color: "#2e7d32",
+      title: "Total Customers",
+      value: totalCustomers.toLocaleString(),
+      icon: <PeopleIcon />,
+      color: "#16835b",
+      background: "#e8f7ef",
       trend: "+5%",
     },
     {
-      title: "Revenue",
-      value: `KES ${totalRevenue}`,
-      icon: <AttachMoneyIcon sx={{ fontSize: 34 }} />,
-      color: "#ed6c02",
+      title: "Total Revenue",
+      value: `KES ${totalRevenue.toLocaleString("en-KE", {
+        maximumFractionDigits: 2,
+      })}`,
+      icon: <AttachMoneyIcon />,
+      color: "#c77708",
+      background: "#fff4df",
       trend: "+12%",
     },
     {
       title: "Pending Orders",
-      value: pendingOrders,
-      icon: <HourglassEmptyIcon sx={{ fontSize: 34 }} />,
-      color: "#9c27b0",
+      value: pendingOrders.toLocaleString(),
+      icon: <HourglassEmptyIcon />,
+      color: "#8051c7",
+      background: "#f2eaff",
       trend: "-2%",
     },
   ];
 
   return (
-    <Grid container spacing={3}>
+    <Grid container spacing={{ xs: 2, md: 2.5 }}>
       {cards.map((card) => (
         <Grid
           key={card.title}
           size={{ xs: 12, sm: 6, lg: 3 }}
+          sx={{ minWidth: 0 }}
         >
           <Paper
             elevation={0}
             sx={{
-              p: 3,
-              borderRadius: 4,
-              borderLeft: `6px solid ${card.color}`,
-              boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
-              transition: "0.3s",
+              position: "relative",
+              height: "100%",
+              minWidth: 0,
+              p: { xs: 2.25, sm: 2.5, md: 3 },
+              borderRadius: 3,
+              border: "1px solid #e8edf4",
+              backgroundColor: "#ffffff",
+              boxShadow: "0 4px 18px rgba(30, 55, 90, 0.04)",
+              overflow: "hidden",
+              transition:
+                "transform 0.25s ease, box-shadow 0.25s ease",
               "&:hover": {
-                transform: "translateY(-6px)",
-                boxShadow: "0 18px 35px rgba(0,0,0,0.15)",
+                transform: "translateY(-4px)",
+                boxShadow: "0 12px 28px rgba(30, 55, 90, 0.10)",
               },
             }}
           >
             <Box
-              display="flex"
-              justifyContent="space-between"
-              alignItems="center"
+              sx={{
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: 1.5,
+              }}
             >
-              <Box>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
                 <Typography
                   variant="body2"
-                  color="text.secondary"
+                  sx={{
+                    color: "#758198",
+                    fontWeight: 600,
+                    fontSize: { xs: "0.82rem", sm: "0.85rem" },
+                    letterSpacing: "0.1px",
+                  }}
                 >
                   {card.title}
                 </Typography>
 
                 <Typography
-                  variant="h4"
-                  fontWeight="bold"
-                  sx={{ mt: 1 }}
+                  component="div"
+                  sx={{
+                    mt: 1.5,
+                    color: "#243247",
+                    fontWeight: 800,
+                    fontSize:
+                      card.title === "Total Revenue"
+                        ? {
+                            xs: "1.35rem",
+                            sm: "1.3rem",
+                            md: "1.45rem",
+                          }
+                        : {
+                            xs: "2rem",
+                            sm: "2rem",
+                            md: "2.15rem",
+                          },
+                    lineHeight: 1.2,
+                    overflowWrap: "anywhere",
+                  }}
                 >
                   {card.value}
                 </Typography>
-
-                <Box
-                  display="flex"
-                  alignItems="center"
-                  mt={1}
-                >
-                  <TrendingUpIcon
-                    sx={{
-                      fontSize: 18,
-                      color: "success.main",
-                      mr: 0.5,
-                    }}
-                  />
-
-                  <Typography
-                    variant="body2"
-                    color="success.main"
-                  >
-                    {card.trend} this month
-                  </Typography>
-                </Box>
               </Box>
 
               <Box
                 sx={{
-                  width: 70,
-                  height: 70,
-                  borderRadius: "50%",
-                  bgcolor: `${card.color}15`,
+                  width: { xs: 46, sm: 50 },
+                  height: { xs: 46, sm: 50 },
+                  flexShrink: 0,
+                  borderRadius: 2.5,
+                  bgcolor: card.background,
                   color: card.color,
                   display: "flex",
-                  justifyContent: "center",
                   alignItems: "center",
+                  justifyContent: "center",
+                  "& svg": {
+                    fontSize: { xs: 25, sm: 28 },
+                  },
                 }}
               >
                 {card.icon}
               </Box>
+            </Box>
+
+            <Box
+              sx={{
+                mt: 2.5,
+                pt: 1.75,
+                borderTop: "1px solid #f0f2f6",
+                display: "flex",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 0.75,
+              }}
+            >
+              <Box
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.25,
+                  px: 0.8,
+                  py: 0.35,
+                  borderRadius: 1.5,
+                  bgcolor: "#eaf7ef",
+                  color: "#218653",
+                }}
+              >
+                <TrendingUpIcon sx={{ fontSize: 15 }} />
+
+                <Typography
+                  component="span"
+                  sx={{
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {card.trend}
+                </Typography>
+              </Box>
+
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "#8994a7",
+                  fontSize: "0.75rem",
+                }}
+              >
+                this month
+              </Typography>
             </Box>
           </Paper>
         </Grid>

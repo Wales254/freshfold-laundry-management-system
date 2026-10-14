@@ -9,6 +9,8 @@ import {
   Typography,
   Divider,
   Box,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 
 import { NavLink } from "react-router-dom";
@@ -27,9 +29,11 @@ import GroupIcon from "@mui/icons-material/Group";
 
 const drawerWidth = 250;
 
-function Sidebar() {
-  const user = useSelector((state) => state.auth.user);
+function Sidebar({ mobileOpen, onClose, onNavigate }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
+  const user = useSelector((state) => state.auth.user);
   const role = user?.role || "Guest";
 
   const menuItems = [
@@ -101,62 +105,83 @@ function Sidebar() {
 
   return (
     <Drawer
-      variant="permanent"
+      variant={isMobile ? "temporary" : "permanent"}
+      open={isMobile ? mobileOpen : true}
+      onClose={onClose}
+      ModalProps={{ keepMounted: true }}
       sx={{
-        width: drawerWidth,
-        flexShrink: 0,
+        width: { md: drawerWidth },
+        flexShrink: { md: 0 },
         "& .MuiDrawer-paper": {
           width: drawerWidth,
           boxSizing: "border-box",
-          borderRight: "1px solid #e0e0e0",
-          bgcolor: "#fafafa",
+          borderRight: "1px solid #e5eaf2",
+          bgcolor: "#ffffff",
         },
       }}
     >
-      <Toolbar>
-        <Box>
+      <Toolbar sx={{ minHeight: "64px !important", px: 2 }}>
+        <Box sx={{ minWidth: 0 }}>
           <Typography
             variant="h6"
-            fontWeight="bold"
-            color="primary"
+            sx={{
+              fontWeight: 800,
+              letterSpacing: "-0.5px",
+              color: "#1565c0",
+            }}
           >
             FreshFold
           </Typography>
 
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
+          <Typography variant="caption" color="text.secondary">
             Laundry Management
-          </Typography>
-
-          <Typography
-            variant="body2"
-            sx={{
-              mt: 1,
-              fontWeight: "bold",
-            }}
-          >
-            {user?.name}
-          </Typography>
-
-          <Typography
-            variant="caption"
-            color="primary"
-          >
-            {role}
           </Typography>
         </Box>
       </Toolbar>
 
       <Divider />
 
-      <List
+      <Box sx={{ px: 2, py: 2 }}>
+        <Box
+          sx={{
+            p: 1.5,
+            borderRadius: 2,
+            bgcolor: "#f1f6fd",
+            overflow: "hidden",
+          }}
+        >
+          <Typography
+            variant="body2"
+            fontWeight={700}
+            noWrap
+            title={user?.name || ""}
+          >
+            {user?.name || "User"}
+          </Typography>
+
+          <Typography
+            variant="caption"
+            color="primary"
+            sx={{ fontWeight: 600 }}
+          >
+            {role}
+          </Typography>
+        </Box>
+      </Box>
+
+      <Typography
+        variant="overline"
         sx={{
-          px: 1.5,
-          py: 2,
+          px: 3,
+          color: "#8792a2",
+          fontWeight: 700,
+          letterSpacing: 1,
         }}
       >
+        WORKSPACE
+      </Typography>
+
+      <List sx={{ px: 1.5, py: 1 }}>
         {allowedMenus.map((item) => (
           <ListItem
             key={item.text}
@@ -167,29 +192,33 @@ function Sidebar() {
               component={NavLink}
               to={item.path}
               end={item.path === "/"}
+              onClick={onNavigate}
               sx={{
+                minHeight: 46,
                 borderRadius: 2,
                 px: 2,
-                transition: "all .25s ease",
+                color: "#536176",
+                transition: "background-color 0.2s ease, color 0.2s ease",
 
                 "&:hover": {
-                  bgcolor: "#E3F2FD",
+                  bgcolor: "#f1f6fd",
+                  color: "#1565c0",
                 },
 
                 "&.active": {
-                  bgcolor: "#1976d2",
-                  color: "#fff",
-                  boxShadow: 2,
+                  bgcolor: "#1565c0",
+                  color: "#ffffff",
+                  boxShadow: "0 4px 10px rgba(21, 101, 192, 0.18)",
                 },
 
                 "&.active .MuiListItemIcon-root": {
-                  color: "#fff",
+                  color: "#ffffff",
                 },
               }}
             >
               <ListItemIcon
                 sx={{
-                  minWidth: 42,
+                  minWidth: 40,
                   color: "inherit",
                 }}
               >
@@ -199,7 +228,8 @@ function Sidebar() {
               <ListItemText
                 primary={item.text}
                 primaryTypographyProps={{
-                  fontWeight: 500,
+                  fontSize: 14,
+                  fontWeight: 600,
                 }}
               />
             </ListItemButton>
