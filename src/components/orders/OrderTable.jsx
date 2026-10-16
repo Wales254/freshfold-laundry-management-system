@@ -20,7 +20,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import PaymentsIcon from "@mui/icons-material/Payments";
 
-import { deleteOrder } from "../../redux/orderSlice";
+import { deleteOrderFromApi } from "../../redux/orderSlice";
 
 import EditOrderDialog from "./EditOrderDialog";
 import StatusWorkflow from "./StatusWorkflow";
@@ -28,10 +28,10 @@ import ReceiptDialog from "../receipt/ReceiptDialog";
 import PaymentDialog from "./PaymentDialog";
 
 function OrderTable({
-  search,
-  statusFilter,
-  serviceFilter,
-  sortBy,
+  search = "",
+  statusFilter = "All",
+  serviceFilter = "All",
+  sortBy = "Newest",
 }) {
   const orders = useSelector(
     (state) => state.orders.orders
@@ -71,19 +71,23 @@ function OrderTable({
   // SEARCH
   // ============================
 
-  let filteredOrders = orders.filter((order) => {
-    const term = search.toLowerCase();
+  const term = String(search).toLowerCase();
 
+  let filteredOrders = orders.filter((order) => {
     return (
-      order.customer
+      String(order.customer ?? "")
         .toLowerCase()
         .includes(term) ||
-      order.phone.toLowerCase().includes(term) ||
-      order.service
+      String(order.phone ?? "")
         .toLowerCase()
         .includes(term) ||
-      order.status.toLowerCase().includes(term) ||
-      order.id.toString().includes(term)
+      String(order.service ?? "")
+        .toLowerCase()
+        .includes(term) ||
+      String(order.status ?? "")
+        .toLowerCase()
+        .includes(term) ||
+      String(order.id ?? "").includes(term)
     );
   });
 
@@ -114,25 +118,29 @@ function OrderTable({
   switch (sortBy) {
     case "Newest":
       filteredOrders.sort(
-        (a, b) => b.id - a.id
+        (a, b) => Number(b.id) - Number(a.id)
       );
       break;
 
     case "Oldest":
       filteredOrders.sort(
-        (a, b) => a.id - b.id
+        (a, b) => Number(a.id) - Number(b.id)
       );
       break;
 
     case "A-Z":
       filteredOrders.sort((a, b) =>
-        a.customer.localeCompare(b.customer)
+        String(a.customer ?? "").localeCompare(
+          String(b.customer ?? "")
+        )
       );
       break;
 
     case "Z-A":
       filteredOrders.sort((a, b) =>
-        b.customer.localeCompare(a.customer)
+        String(b.customer ?? "").localeCompare(
+          String(a.customer ?? "")
+        )
       );
       break;
 
@@ -140,10 +148,55 @@ function OrderTable({
       break;
   }
 
-  const paginatedOrders = filteredOrders.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
+  // Keep pagination within the available page range.
+  const totalPages = Math.ceil(
+    filteredOrders.length / rowsPerPage
   );
+
+  const safePage =
+    totalPages > 0 ? Math.min(page, totalPages - 1) : 0;
+
+  const paginatedOrders = filteredOrders.slice(
+    safePage * rowsPerPage,
+    safePage * rowsPerPage + rowsPerPage
+  );
+
+  // ============================
+  // DELETE ORDER FROM DATABASE
+  // ============================
+
+  const handleDelete = async (order) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete order #${order.id} for ${order.customer}?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await dispatch(
+        deleteOrderFromApi(order.id)
+      ).unwrap();
+
+      // Close dialogs if the deleted order was selected.
+      if (
+        selectedOrder &&
+        String(selectedOrder.id) === String(order.id)
+      ) {
+        setSelectedOrder(null);
+        setOpenEdit(false);
+        setOpenReceipt(false);
+        setOpenPayment(false);
+      }
+    } catch (error) {
+      console.error("Failed to delete order:", error);
+
+      window.alert(
+        typeof error === "string"
+          ? error
+          : "Could not delete the order. Please check your backend connection and try again."
+      );
+    }
+  };
 
   return (
     <>
@@ -235,30 +288,28 @@ function OrderTable({
 
                   <TableCell>
                     <strong>
-                      KES {order.total}
+                      KES {Number(order.total ?? 0).toLocaleString()}
                     </strong>
                   </TableCell>
 
                   <TableCell>
-                    KES {order.amountPaid}
+                    KES {Number(order.amountPaid ?? 0).toLocaleString()}
                   </TableCell>
 
                   <TableCell>
-                    KES {order.balance}
+                    KES {Number(order.balance ?? 0).toLocaleString()}
                   </TableCell>
 
                   <TableCell>
                     <Chip
                       label={
-                        order.paymentStatus
+                        order.paymentStatus || "Unpaid"
                       }
                       size="small"
                       color={
-                        order.paymentStatus ===
-                        "Paid"
+                        order.paymentStatus === "Paid"
                           ? "success"
-                          : order.paymentStatus ===
-                            "Partial"
+                          : order.paymentStatus === "Partial"
                           ? "warning"
                           : "error"
                       }
@@ -278,8 +329,7 @@ function OrderTable({
                           handlePayment(order)
                         }
                         disabled={
-                          order.paymentStatus ===
-                          "Paid"
+                          order.paymentStatus === "Paid"
                         }
                       >
                         <PaymentsIcon />
@@ -309,11 +359,7 @@ function OrderTable({
                         color="error"
                         title="Delete Order"
                         onClick={() =>
-                          dispatch(
-                            deleteOrder(
-                              order.id
-                            )
-                          )
+                          handleDelete(order)
                         }
                       >
                         <DeleteIcon />
@@ -338,7 +384,7 @@ function OrderTable({
         <TablePagination
           component="div"
           count={filteredOrders.length}
-          page={page}
+          page={safePage}
           rowsPerPage={rowsPerPage}
           rowsPerPageOptions={[5, 10, 20]}
           onPageChange={(event, newPage) =>
@@ -346,10 +392,7 @@ function OrderTable({
           }
           onRowsPerPageChange={(event) => {
             setRowsPerPage(
-              parseInt(
-                event.target.value,
-                10
-              )
+              parseInt(event.target.value, 10)
             );
             setPage(0);
           }}

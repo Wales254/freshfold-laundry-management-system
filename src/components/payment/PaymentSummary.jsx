@@ -35,7 +35,7 @@ function PaymentSummary() {
   ).length;
 
   const pendingOrders = orders.filter(
-    (order) => order.paymentStatus === "Pending"
+    (order) => order.paymentStatus === "Unpaid"
   ).length;
 
   const cards = [

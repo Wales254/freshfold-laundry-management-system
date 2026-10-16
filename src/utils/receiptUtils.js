@@ -1,5 +1,3 @@
-// src/utils/receiptUtils.js
-
 /**
  * Generate a unique receipt number.
  * Example: FF-20260720-00001
@@ -22,7 +20,7 @@ export const formatCurrency = (amount) =>
     style: "currency",
     currency: "KES",
     minimumFractionDigits: 2,
-  }).format(amount);
+  }).format(Number(amount) || 0);
 
 /**
  * Format date.
@@ -51,18 +49,24 @@ export const formatDateTime = (date) =>
   `${formatDate(date)} ${formatTime(date)}`;
 
 /**
- * Convert payment status into a user-friendly label.
+ * Convert payment status into a consistent user-friendly label.
  */
 export const formatPaymentStatus = (status) => {
-  if (!status) return "Pending";
+  if (!status) return "Unpaid";
 
-  switch (status.toLowerCase()) {
+  switch (String(status).trim().toLowerCase()) {
     case "paid":
       return "Paid";
+
     case "pending":
-      return "Pending";
+    case "unpaid":
+      return "Unpaid";
+
     case "partial":
-      return "Partially Paid";
+    case "partial payment":
+    case "partially paid":
+      return "Partial";
+
     default:
       return status;
   }
@@ -72,12 +76,15 @@ export const formatPaymentStatus = (status) => {
  * Calculate subtotal.
  */
 export const calculateSubtotal = (items = []) =>
-  items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  items.reduce(
+    (sum, item) =>
+      sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0),
+    0
+  );
 
 /**
  * Calculate tax.
  * VAT is set to 0% for now.
- * Change later if needed.
  */
 export const calculateTax = (subtotal, rate = 0) =>
   subtotal * rate;

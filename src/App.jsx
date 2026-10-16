@@ -4,6 +4,8 @@ import { useDispatch } from "react-redux";
 
 import { loginSuccess } from "./redux/authSlice";
 
+import { fetchOrdersFromApi } from "./redux/orderSlice";
+
 import Layout from "./components/layout/Layout";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import RoleProtectedRoute from "./components/auth/RoleProtectedRoute";
@@ -24,13 +26,19 @@ import Users from "./pages/Users";
 function App() {
   const dispatch = useDispatch();
 
-  useEffect(() => {
-    const auth = localStorage.getItem("auth");
+ useEffect(() => {
+  const auth = localStorage.getItem("auth");
 
-    if (auth) {
+  if (auth) {
+    try {
       dispatch(loginSuccess(JSON.parse(auth)));
+    } catch (error) {
+      console.error("Failed to restore authentication:", error);
     }
-  }, [dispatch]);
+  }
+
+  dispatch(fetchOrdersFromApi());
+}, [dispatch]);
 
   return (
     <BrowserRouter>

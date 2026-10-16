@@ -1,49 +1,67 @@
-import { createSlice } from "@reduxjs/toolkit";
+
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+
+import {
+  fetchOrders,
+  createOrder,
+  updateOrderApi,
+  deleteOrderApi,
+} from "../api/ordersApi";
+
+// Fetch orders from PostgreSQL
+export const fetchOrdersFromApi = createAsyncThunk(
+  "orders/fetchFromApi",
+  async (_, { rejectWithValue }) => {
+    try {
+      return await fetchOrders();
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Create an order in PostgreSQL
+export const addOrderToApi = createAsyncThunk(
+  "orders/addToApi",
+  async (order, { rejectWithValue }) => {
+    try {
+      return await createOrder(order);
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Update an order in PostgreSQL
+export const updateOrderInApi = createAsyncThunk(
+  "orders/updateInApi",
+  async (order, { rejectWithValue }) => {
+    try {
+      const { id, ...changes } = order;
+      return await updateOrderApi(id, changes);
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Delete an order from PostgreSQL
+export const deleteOrderFromApi = createAsyncThunk(
+  "orders/deleteFromApi",
+  async (id, { rejectWithValue }) => {
+    try {
+      await deleteOrderApi(id);
+      return id;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
 
 const initialState = {
-  orders: [
-    {
-      id: 1,
-      customer: "John Doe",
-      phone: "0712345678",
-      service: "Wash & Fold",
-      quantity: 5,
-      total: 25,
-      status: "Received",
-
-      createdAt: "2026-07-10",
-      deliveryDate: "2026-07-12",
-
-      // Payment Summary
-      paymentStatus: "Pending",
-      amountPaid: 0,
-      balance: 25,
-      change: 0,
-
-      // Payment History
-      payments: [],
-    },
-
-    {
-      id: 2,
-      customer: "Jane Smith",
-      phone: "0700111222",
-      service: "Dry Cleaning",
-      quantity: 3,
-      total: 40,
-      status: "Received",
-
-      createdAt: "2026-07-10",
-      deliveryDate: "2026-07-11",
-
-      paymentStatus: "Pending",
-      amountPaid: 0,
-      balance: 40,
-      change: 0,
-
-      payments: [],
-    },
-  ],
+  orders: [],
+  loading: false,
+  error: null,
 };
 
 const orderSlice = createSlice({
@@ -51,43 +69,11 @@ const orderSlice = createSlice({
   initialState,
 
   reducers: {
-    // =====================================
-    // Add Order
-    // =====================================
-    addOrder: (state, action) => {
-      state.orders.push({
-        ...action.payload,
-
-        createdAt: new Date()
-          .toISOString()
-          .split("T")[0],
-
-        paymentStatus: "Pending",
-        amountPaid: 0,
-        balance: Number(action.payload.total),
-        change: 0,
-
-        payments: [],
-      });
-    },
-
-    // =====================================
-    // Delete Order
-    // =====================================
-    deleteOrder: (state, action) => {
-      state.orders = state.orders.filter(
-        (order) => order.id !== action.payload
-      );
-    },
-
-    // =====================================
-    // Update Order Status
-    // =====================================
+    // Update order status locally
     updateStatus: (state, action) => {
       const { id, status } = action.payload;
-
       const order = state.orders.find(
-        (order) => order.id === id
+        (item) => String(item.id) === String(id)
       );
 
       if (order) {
@@ -95,14 +81,12 @@ const orderSlice = createSlice({
       }
     },
 
-    // =====================================
-    // Edit Order
-    // =====================================
+    // Update an order locally
     updateOrder: (state, action) => {
       const updatedOrder = action.payload;
 
       const index = state.orders.findIndex(
-        (order) => order.id === updatedOrder.id
+        (item) => String(item.id) === String(updatedOrder.id)
       );
 
       if (index !== -1) {
@@ -110,9 +94,7 @@ const orderSlice = createSlice({
       }
     },
 
-    // =====================================
-    // Receive Payment
-    // =====================================
+    // Record payment locally (database integration comes next)
     updatePayment: (state, action) => {
       const {
         id,
@@ -122,14 +104,21 @@ const orderSlice = createSlice({
       } = action.payload;
 
       const order = state.orders.find(
-        (order) => order.id === id
+        (item) => String(item.id) === String(id)
       );
 
       if (!order) return;
 
       const paymentAmount = Number(amountPaid);
 
-      // Save payment history
+      if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+        return;
+      }
+
+      if (!Array.isArray(order.payments)) {
+        order.payments = [];
+      }
+
       order.payments.push({
         id: Date.now(),
         amount: paymentAmount,
@@ -138,37 +127,29 @@ const orderSlice = createSlice({
         date: new Date().toISOString(),
       });
 
-      // Calculate total paid
       const totalPaid = order.payments.reduce(
         (sum, payment) => sum + Number(payment.amount),
         0
       );
 
-      order.amountPaid = totalPaid;
-
       const total = Number(order.total);
 
-      if (totalPaid >= total) {
-        order.balance = 0;
-        order.change = totalPaid - total;
-        order.paymentStatus = "Paid";
-      } else if (totalPaid > 0) {
-        order.balance = total - totalPaid;
-        order.change = 0;
-        order.paymentStatus = "Partial";
-      } else {
-        order.balance = total;
-        order.change = 0;
-        order.paymentStatus = "Pending";
-      }
+      order.amountPaid = totalPaid;
+      order.balance = Math.max(total - totalPaid, 0);
+      order.change = Math.max(totalPaid - total, 0);
+
+      order.paymentStatus =
+        totalPaid >= total
+          ? "Paid"
+          : totalPaid > 0
+          ? "Partial"
+          : "Unpaid";
     },
 
-    // =====================================
-    // Clear Payments (Optional)
-    // =====================================
+    // Clear payment history locally
     clearPayments: (state, action) => {
       const order = state.orders.find(
-        (order) => order.id === action.payload
+        (item) => String(item.id) === String(action.payload)
       );
 
       if (!order) return;
@@ -177,14 +158,82 @@ const orderSlice = createSlice({
       order.amountPaid = 0;
       order.balance = Number(order.total);
       order.change = 0;
-      order.paymentStatus = "Pending";
+      order.paymentStatus = "Unpaid";
     },
+  },
+
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchOrdersFromApi.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchOrdersFromApi.fulfilled, (state, action) => {
+        state.loading = false;
+        state.orders = action.payload.map((order) => ({
+          ...order,
+          total: Number(order.total),
+          amountPaid: Number(order.amountPaid || 0),
+          balance: Number(order.balance || 0),
+          change: Number(order.change || 0),
+          payments: order.payments || [],
+        }));
+      })
+      .addCase(fetchOrdersFromApi.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
+
+      .addCase(addOrderToApi.fulfilled, (state, action) => {
+        const order = action.payload;
+
+        state.orders.unshift({
+          ...order,
+          total: Number(order.total),
+          amountPaid: Number(order.amountPaid || 0),
+          balance: Number(order.balance || 0),
+          change: Number(order.change || 0),
+          payments: order.payments || [],
+        });
+      })
+      .addCase(addOrderToApi.rejected, (state, action) => {
+        state.error = action.payload || action.error.message;
+      })
+
+      .addCase(updateOrderInApi.fulfilled, (state, action) => {
+        const updatedOrder = action.payload;
+
+        const index = state.orders.findIndex(
+          (item) => String(item.id) === String(updatedOrder.id)
+        );
+
+        if (index !== -1) {
+          state.orders[index] = {
+            ...state.orders[index],
+            ...updatedOrder,
+            total: Number(updatedOrder.total),
+            amountPaid: Number(updatedOrder.amountPaid || 0),
+            balance: Number(updatedOrder.balance || 0),
+            change: Number(updatedOrder.change || 0),
+          };
+        }
+      })
+      .addCase(updateOrderInApi.rejected, (state, action) => {
+        state.error = action.payload || action.error.message;
+      })
+
+      .addCase(deleteOrderFromApi.fulfilled, (state, action) => {
+        state.orders = state.orders.filter(
+          (item) => String(item.id) !== String(action.payload)
+        );
+      })
+      .addCase(deleteOrderFromApi.rejected, (state, action) => {
+        state.error = action.payload || action.error.message;
+      });
   },
 });
 
 export const {
-  addOrder,
-  deleteOrder,
   updateStatus,
   updateOrder,
   updatePayment,

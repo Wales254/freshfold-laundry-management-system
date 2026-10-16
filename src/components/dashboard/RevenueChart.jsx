@@ -1,3 +1,4 @@
+
 import { useSelector } from "react-redux";
 
 import {
@@ -28,6 +29,7 @@ function RevenueChart() {
   const today = new Date();
   const weekDays = [];
 
+  // Build the last seven calendar days, including today.
   for (let i = 6; i >= 0; i--) {
     const date = new Date(today);
     date.setDate(today.getDate() - i);
@@ -38,6 +40,7 @@ function RevenueChart() {
         String(date.getMonth() + 1).padStart(2, "0"),
         String(date.getDate()).padStart(2, "0"),
       ].join("-"),
+
       label: date.toLocaleDateString("en-GB", {
         weekday: "short",
         day: "numeric",
@@ -45,29 +48,39 @@ function RevenueChart() {
     });
   }
 
+  // Calculate revenue using saved payment information.
   const revenueByDay = weekDays.map((day) => {
     let revenue = 0;
 
     orders.forEach((order) => {
-      if (!Array.isArray(order.payments)) return;
+      if (
+        !order.paymentDate ||
+        order.amountPaid == null
+      ) {
+        return;
+      }
 
-      order.payments.forEach((payment) => {
-        if (!payment.date) return;
+      const amountPaid = Number(order.amountPaid);
 
-        const paymentDate = new Date(payment.date);
+      if (!Number.isFinite(amountPaid) || amountPaid <= 0) {
+        return;
+      }
 
-        if (Number.isNaN(paymentDate.getTime())) return;
+      const paymentDate = new Date(order.paymentDate);
 
-        const paymentDateKey = [
-          paymentDate.getFullYear(),
-          String(paymentDate.getMonth() + 1).padStart(2, "0"),
-          String(paymentDate.getDate()).padStart(2, "0"),
-        ].join("-");
+      if (Number.isNaN(paymentDate.getTime())) {
+        return;
+      }
 
-        if (paymentDateKey === day.dateKey) {
-          revenue += Number(payment.amount) || 0;
-        }
-      });
+      const paymentDateKey = [
+        paymentDate.getFullYear(),
+        String(paymentDate.getMonth() + 1).padStart(2, "0"),
+        String(paymentDate.getDate()).padStart(2, "0"),
+      ].join("-");
+
+      if (paymentDateKey === day.dateKey) {
+        revenue += amountPaid;
+      }
     });
 
     return revenue;
@@ -85,6 +98,7 @@ function RevenueChart() {
 
   const data = {
     labels: weekDays.map((day) => day.label),
+
     datasets: [
       {
         label: "Revenue",
@@ -136,9 +150,11 @@ function RevenueChart() {
           display: false,
           drawBorder: false,
         },
+
         border: {
           display: false,
         },
+
         ticks: {
           color: "#758198",
           font: {
@@ -151,18 +167,22 @@ function RevenueChart() {
 
       y: {
         beginAtZero: true,
+
         border: {
           display: false,
           dash: [4, 4],
         },
+
         grid: {
           color: "#edf1f6",
           drawTicks: false,
         },
+
         ticks: {
           color: "#758198",
           padding: 10,
           maxTicksLimit: 6,
+
           callback: (value) =>
             Number(value).toLocaleString("en-KE"),
         },

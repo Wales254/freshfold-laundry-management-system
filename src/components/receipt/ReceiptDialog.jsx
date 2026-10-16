@@ -1,3 +1,4 @@
+
 import { useMemo } from "react";
 import { useSelector } from "react-redux";
 
@@ -19,35 +20,30 @@ import ReceiptContent from "./ReceiptContent";
 import generateReceiptPDF from "./ReceiptPDF";
 import { generateReceiptNumber } from "../../utils/receiptUtils";
 
-function ReceiptDialog({
-  open,
-  handleClose,
-  order,
-}) {
-  // Always get the latest version of the order
+function ReceiptDialog({ open, handleClose, order }) {
+  // Always get the latest version of the order.
   const latestOrder = useSelector((state) =>
     state.orders.orders.find((o) => o.id === order?.id)
   );
 
-  if (!latestOrder) return null;
-
-  // Latest payment made
-  const latestPayment =
-    latestOrder.payments?.[
-      latestOrder.payments.length - 1
-    ] || null;
-
+  // Hooks must run in the same order on every render.
   const receiptNumber = useMemo(() => {
+    if (!latestOrder) return "";
+
     return (
       latestOrder.receiptNo ||
       generateReceiptNumber(latestOrder.id)
     );
   }, [latestOrder]);
 
+  // Find the latest payment.
+  const latestPayment =
+    latestOrder?.payments?.[
+      latestOrder.payments.length - 1
+    ] || null;
+
   const handlePrint = () => {
-    const receipt = document.getElementById(
-      "receipt-content"
-    );
+    const receipt = document.getElementById("receipt-content");
 
     if (!receipt) return;
 
@@ -57,61 +53,56 @@ function ReceiptDialog({
       "width=900,height=700"
     );
 
+    if (!printWindow) {
+      window.alert("Please allow pop-ups to print the receipt.");
+      return;
+    }
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
         <title>${receiptNumber}</title>
-
         <style>
-          body{
+          body {
             font-family: Arial, Helvetica, sans-serif;
-            background:#ffffff;
-            color:#000;
-            padding:30px;
+            background: #ffffff;
+            color: #000;
+            padding: 30px;
           }
-
-          #receipt-content{
-            max-width:800px;
-            margin:auto;
+          #receipt-content {
+            max-width: 800px;
+            margin: auto;
           }
-
-          table{
-            width:100%;
-            border-collapse:collapse;
-            margin-top:10px;
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
           }
-
-          th{
-            background:#f4f4f4;
+          th {
+            background: #f4f4f4;
           }
-
-          th,td{
-            border:1px solid #ddd;
-            padding:8px;
-            text-align:left;
+          th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
           }
-
-          hr{
-            margin:18px 0;
+          hr {
+            margin: 18px 0;
           }
-
-          h1,h2,h3,h4,h5{
-            margin:5px 0;
+          h1, h2, h3, h4, h5 {
+            margin: 5px 0;
           }
-
-          @media print{
-            body{
-              padding:0;
+          @media print {
+            body {
+              padding: 0;
             }
-
-            button{
-              display:none;
+            button {
+              display: none;
             }
           }
         </style>
       </head>
-
       <body>
         ${receipt.innerHTML}
       </body>
@@ -123,6 +114,9 @@ function ReceiptDialog({
     printWindow.print();
     printWindow.close();
   };
+
+  // Render nothing when the selected order is unavailable.
+  if (!latestOrder) return null;
 
   return (
     <Dialog
@@ -141,17 +135,11 @@ function ReceiptDialog({
         }}
       >
         <Box>
-          <Typography
-            variant="h6"
-            fontWeight="bold"
-          >
+          <Typography variant="h6" fontWeight="bold">
             FreshFold Laundry Receipt
           </Typography>
 
-          <Typography
-            variant="body2"
-            color="text.secondary"
-          >
+          <Typography variant="body2" color="text.secondary">
             Receipt No: {receiptNumber}
           </Typography>
         </Box>
@@ -159,23 +147,15 @@ function ReceiptDialog({
         <Button
           color="inherit"
           onClick={handleClose}
-          sx={{
-            minWidth: "40px",
-            p: 1,
-          }}
+          sx={{ minWidth: "40px", p: 1 }}
         >
           <CloseIcon />
         </Button>
       </DialogTitle>
 
       <DialogContent dividers>
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          mb={2}
-        >
-          Preview the receipt before printing or
-          downloading it as a PDF.
+        <Typography variant="body2" color="text.secondary" mb={2}>
+          Preview the receipt before printing or downloading it as a PDF.
         </Typography>
 
         <ReceiptContent
@@ -194,22 +174,13 @@ function ReceiptDialog({
           gap: 2,
         }}
       >
-        <Box
-          sx={{
-            display: "flex",
-            gap: 1,
-            flexWrap: "wrap",
-          }}
-        >
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
           <Button
             variant="outlined"
             color="error"
             startIcon={<PictureAsPdfIcon />}
             onClick={() =>
-              generateReceiptPDF(
-                latestOrder,
-                latestPayment
-              )
+              generateReceiptPDF(latestOrder, latestPayment)
             }
           >
             Download PDF

@@ -64,7 +64,7 @@ function PaymentFilters({
             <MenuItem value="All">All</MenuItem>
             <MenuItem value="Paid">Paid</MenuItem>
             <MenuItem value="Partial">Partial</MenuItem>
-            <MenuItem value="Pending">Pending</MenuItem>
+            <MenuItem value="Unpaid">Pending</MenuItem>
           </TextField>
         </Grid>
 

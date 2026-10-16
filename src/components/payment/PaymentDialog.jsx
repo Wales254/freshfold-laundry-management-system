@@ -1,7 +1,8 @@
+
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { updatePayment } from "../../redux/orderSlice";
+import { fetchOrdersFromApi } from "../../redux/orderSlice";
 
 import {
   Dialog,
@@ -18,163 +19,153 @@ import {
   Chip,
 } from "@mui/material";
 
-function PaymentDialog({
-  open,
-  handleClose,
-  order,
-}) {
+function PaymentDialog({ open, handleClose, order }) {
   const dispatch = useDispatch();
 
-  const [paymentMethod, setPaymentMethod] =
-    useState("Cash");
-
-  const [amountPaid, setAmountPaid] =
-    useState("");
-
-  const [transactionCode, setTransactionCode] =
-    useState("");
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [amountPaid, setAmountPaid] = useState("");
+  const [transactionCode, setTransactionCode] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (order) {
-      setPaymentMethod(
-        order.paymentMethod || "Cash"
-      );
-
-      setAmountPaid(
-        order.amountPaid || ""
-      );
-
-      setTransactionCode(
-        order.transactionCode || ""
-      );
+    if (order && open) {
+      setPaymentMethod(order.paymentMethod || "Cash");
+      setAmountPaid("");
+      setTransactionCode("");
     }
-  }, [order]);
+  }, [order, open]);
 
   if (!order) return null;
 
-  const total = Number(order.total);
+  const total = Number(order.total) || 0;
+  const previouslyPaid = Number(order.amountPaid) || 0;
+  const newPayment = Number(amountPaid) || 0;
+  const totalAfterPayment = previouslyPaid + newPayment;
+  const balance = Math.max(total - totalAfterPayment, 0);
+  const change = Math.max(totalAfterPayment - total, 0);
 
-  const paid = Number(amountPaid || 0);
+  const paymentStatus =
+    totalAfterPayment >= total
+      ? "Paid"
+      : totalAfterPayment > 0
+        ? "Partial"
+        : "Unpaid";
 
-  const balance =
-    paid >= total ? 0 : total - paid;
+  const handleSave = async () => {
+    if (saving) return;
 
-  const change =
-    paid > total ? paid - total : 0;
+    if (!Number.isFinite(newPayment) || newPayment <= 0) {
+      window.alert("Enter a payment amount greater than zero.");
+      return;
+    }
 
-  const handleSave = () => {
-    dispatch(
-      updatePayment({
-        id: order.id,
-        paymentMethod,
-        amountPaid: paid,
-        transactionCode,
-      })
-    );
+    if (previouslyPaid >= total) {
+      window.alert("This order has already been fully paid.");
+      return;
+    }
 
-    handleClose();
+    if (paymentMethod !== "Cash" && !transactionCode.trim()) {
+      window.alert("Enter the transaction reference.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/orders/${order.id}/payments`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount: newPayment,
+            method: paymentMethod,
+            transactionReference: transactionCode.trim() || null,
+          }),
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || "Could not save payment.");
+      }
+
+      await dispatch(fetchOrdersFromApi()).unwrap();
+
+      console.log("PAYMENT API RESPONSE:", data);
+
+      window.alert("Payment saved successfully.");
+      handleClose();
+    } catch (error) {
+      console.error("Save payment error:", error);
+      window.alert(
+        error.message || "Payment could not be saved. Please try again."
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <Dialog
       open={open}
-      onClose={handleClose}
+      onClose={saving ? undefined : handleClose}
       fullWidth
       maxWidth="sm"
     >
-      <DialogTitle>
-        Receive Payment
-      </DialogTitle>
+      <DialogTitle>Receive Payment</DialogTitle>
 
       <DialogContent>
-
         <Box mb={2}>
-          <Typography variant="h6">
-            {order.customer}
-          </Typography>
-
-          <Typography color="text.secondary">
-            {order.phone}
-          </Typography>
+          <Typography variant="h6">{order.customer}</Typography>
+          <Typography color="text.secondary">{order.phone}</Typography>
         </Box>
 
         <Divider sx={{ mb: 2 }} />
 
         <Grid container spacing={2}>
+          <Grid size={{ xs: 6 }}>
+            <Typography variant="body2">Service</Typography>
+            <Typography fontWeight="bold">{order.service}</Typography>
+          </Grid>
 
           <Grid size={{ xs: 6 }}>
-            <Typography variant="body2">
-              Service
-            </Typography>
+            <Typography variant="body2">Quantity</Typography>
+            <Typography fontWeight="bold">{order.quantity}</Typography>
+          </Grid>
 
-            <Typography fontWeight="bold">
-              {order.service}
+          <Grid size={{ xs: 6 }}>
+            <Typography variant="body2">Total Bill</Typography>
+            <Typography color="primary" fontWeight="bold">
+              KES {total.toLocaleString()}
             </Typography>
           </Grid>
 
           <Grid size={{ xs: 6 }}>
-            <Typography variant="body2">
-              Quantity
-            </Typography>
-
-            <Typography fontWeight="bold">
-              {order.quantity}
+            <Typography variant="body2">Previously Paid</Typography>
+            <Typography color="success.main" fontWeight="bold">
+              KES {previouslyPaid.toLocaleString()}
             </Typography>
           </Grid>
 
           <Grid size={{ xs: 6 }}>
-            <Typography variant="body2">
-              Total Bill
-            </Typography>
-
-            <Typography
-              color="primary"
-              fontWeight="bold"
-            >
-              KES {order.total}
+            <Typography variant="body2">Remaining After This Payment</Typography>
+            <Typography color="error.main" fontWeight="bold">
+              KES {balance.toLocaleString()}
             </Typography>
           </Grid>
 
           <Grid size={{ xs: 6 }}>
-            <Typography variant="body2">
-              Already Paid
-            </Typography>
-
-            <Typography
-              color="success.main"
-              fontWeight="bold"
-            >
-              KES {order.amountPaid}
-            </Typography>
-          </Grid>
-
-          <Grid size={{ xs: 6 }}>
-            <Typography variant="body2">
-              Balance
-            </Typography>
-
-            <Typography
-              color="error.main"
-              fontWeight="bold"
-            >
-              KES {balance}
-            </Typography>
-          </Grid>
-
-          <Grid size={{ xs: 6 }}>
-            <Typography variant="body2">
-              Status
-            </Typography>
-
+            <Typography variant="body2">Status After Payment</Typography>
             <Chip
-              label={order.paymentStatus}
+              label={paymentStatus}
               color={
-                order.paymentStatus === "Paid"
+                paymentStatus === "Paid"
                   ? "success"
-                  : order.paymentStatus ===
-                    "Partial"
-                  ? "warning"
-                  : "error"
+                  : paymentStatus === "Partial"
+                    ? "warning"
+                    : "error"
               }
             />
           </Grid>
@@ -185,28 +176,12 @@ function PaymentDialog({
               fullWidth
               label="Payment Method"
               value={paymentMethod}
-              onChange={(e) =>
-                setPaymentMethod(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              disabled={saving}
             >
-              <MenuItem value="Cash">
-                Cash
-              </MenuItem>
-
-              <MenuItem value="M-Pesa">
-                M-Pesa
-              </MenuItem>
-
-              <MenuItem value="Card">
-                Card
-              </MenuItem>
-
-              <MenuItem value="Bank">
-                Bank
-              </MenuItem>
-
+              <MenuItem value="Cash">Cash</MenuItem>
+              <MenuItem value="M-Pesa">M-Pesa</MenuItem>
+              <MenuItem value="Card">Card</MenuItem>
             </TextField>
           </Grid>
 
@@ -214,13 +189,11 @@ function PaymentDialog({
             <TextField
               fullWidth
               type="number"
-              label="Amount Paid"
+              label="New Installment Amount"
               value={amountPaid}
-              onChange={(e) =>
-                setAmountPaid(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setAmountPaid(e.target.value)}
+              slotProps={{ htmlInput: { min: 0.01, step: "0.01" } }}
+              disabled={saving}
             />
           </Grid>
 
@@ -228,60 +201,34 @@ function PaymentDialog({
             <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
-                label="Transaction Code"
+                label="Transaction Reference"
                 value={transactionCode}
-                onChange={(e) =>
-                  setTransactionCode(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => setTransactionCode(e.target.value)}
+                disabled={saving}
               />
             </Grid>
           )}
 
           <Grid size={{ xs: 6 }}>
-            <Typography variant="body2">
-              Remaining Balance
-            </Typography>
-
-            <Typography
-              color="error.main"
-              fontWeight="bold"
-            >
-              KES {balance}
+            <Typography variant="body2">Change</Typography>
+            <Typography color="success.main" fontWeight="bold">
+              KES {change.toLocaleString()}
             </Typography>
           </Grid>
-
-          <Grid size={{ xs: 6 }}>
-            <Typography variant="body2">
-              Change
-            </Typography>
-
-            <Typography
-              color="success.main"
-              fontWeight="bold"
-            >
-              KES {change}
-            </Typography>
-          </Grid>
-
         </Grid>
-
       </DialogContent>
 
       <DialogActions>
-
-        <Button onClick={handleClose}>
+        <Button onClick={handleClose} disabled={saving}>
           Cancel
         </Button>
-
         <Button
           variant="contained"
           onClick={handleSave}
+          disabled={saving}
         >
-          Save Payment
+          {saving ? "Saving..." : "Save Payment"}
         </Button>
-
       </DialogActions>
     </Dialog>
   );

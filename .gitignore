@@ -22,3 +22,22 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Backend dependencies
+server/node_modules/
+
+# Private database backups and local data
+*.dump
+*.backup
+*.bak
+*.sqlite
+*.sqlite3
+
+# Logs and generated files
+server/logs/
+server/dist/

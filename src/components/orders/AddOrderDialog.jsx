@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { addOrder } from "../../redux/orderSlice";
+import { addOrderToApi } from "../../redux/orderSlice";
 
 import {
   Dialog,
@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  Alert,
 } from "@mui/material";
 
 import OrderForm from "./OrderForm";
@@ -25,88 +26,129 @@ function AddOrderDialog({ open, handleClose }) {
   const defaultService =
     services.length > 0 ? services[0].name : "";
 
-  const initialForm = {
-    id: "",
-    customer: "",
-    phone: "",
-    service: defaultService,
-    quantity: 1,
-    deliveryDate: "",
-    status: "Received",
-
-    total: calculateTotal(
+  const getInitialForm = () => {
+    const total = calculateTotal(
       services,
       defaultService,
       1
-    ),
+    );
 
-    // Payment Information
-    paymentStatus: "Pending",
-    paymentMethod: "",
-    amountPaid: 0,
+    return {
+      id: "",
+      customer: "",
+      phone: "",
+      service: defaultService,
+      quantity: 1,
+      deliveryDate: "",
+      status: "Received",
+      total,
 
-    balance: calculateTotal(
-      services,
-      defaultService,
-      1
-    ),
-
-    change: 0,
-    paymentDate: "",
+      // Payment Information
+      paymentStatus: "Pending",
+      paymentMethod: "",
+      amountPaid: 0,
+      balance: total,
+      change: 0,
+      paymentDate: "",
+    };
   };
 
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState(getInitialForm);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (saving) return;
+
+    if (
+      !String(form.customer || "").trim() ||
+      !String(form.phone || "").trim() ||
+      !form.service ||
+      Number(form.quantity) < 1
+    ) {
+      setError(
+        "Please enter the customer name, phone, service, and a valid quantity."
+      );
+      return;
+    }
+
     const total = calculateTotal(
       services,
       form.service,
       Number(form.quantity)
     );
 
-    dispatch(
-      addOrder({
-        ...form,
-        id: Date.now(),
-        total,
+    if (!Number.isFinite(Number(total)) || Number(total) < 0) {
+      setError("The order total is invalid. Please check your pricing.");
+      return;
+    }
 
-        paymentStatus: "Pending",
-        paymentMethod: "",
+    setSaving(true);
+    setError("");
+
+    try {
+      const newOrder = {
+        customer: String(form.customer).trim(),
+        phone: String(form.phone).trim(),
+        service: form.service,
+        quantity: Number(form.quantity),
+        deliveryDate: form.deliveryDate || null,
+        status: form.status || "Received",
+        total: Number(total),
+
+        // Initial payment information
+        paymentStatus: "Unpaid",
+        paymentMethod: null,
         amountPaid: 0,
-        balance: total,
+        balance: Number(total),
         change: 0,
-        paymentDate: "",
-      })
-    );
+        paymentDate: null,
+      };
 
-    setForm({
-      ...initialForm,
-      service: defaultService,
-      total: calculateTotal(
-        services,
-        defaultService,
-        1
-      ),
-      balance: calculateTotal(
-        services,
-        defaultService,
-        1
-      ),
-    });
+      await dispatch(addOrderToApi(newOrder)).unwrap();
 
+      setForm(getInitialForm());
+      setError("");
+      handleClose();
+    } catch (err) {
+      console.error("Failed to save order:", err);
+
+      setError(
+        typeof err === "string"
+          ? err
+          : "Failed to save the order. Check that the backend and database are running, then try again."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDialogClose = () => {
+    if (saving) return;
+
+    setError("");
     handleClose();
   };
 
   return (
     <Dialog
       open={open}
-      onClose={handleClose}
+      onClose={handleDialogClose}
       fullWidth
       maxWidth="sm"
     >
       <DialogTitle>Add New Order</DialogTitle>
 
       <DialogContent>
+        {error && (
+          <Alert
+            severity="error"
+            sx={{ mb: 2, mt: 1 }}
+          >
+            {error}
+          </Alert>
+        )}
+
         <OrderForm
           form={form}
           setForm={setForm}
@@ -114,15 +156,19 @@ function AddOrderDialog({ open, handleClose }) {
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={handleClose}>
+        <Button
+          onClick={handleDialogClose}
+          disabled={saving}
+        >
           Cancel
         </Button>
 
         <Button
           variant="contained"
           onClick={handleSave}
+          disabled={saving}
         >
-          Save
+          {saving ? "Saving..." : "Save"}
         </Button>
       </DialogActions>
     </Dialog>

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
@@ -14,62 +15,91 @@ import {
   Divider,
 } from "@mui/material";
 
-import { updatePayment } from "../../redux/orderSlice";
+import { updateOrderInApi } from "../../redux/orderSlice";
 
-function PaymentDialog({
-  open,
-  handleClose,
-  order,
-}) {
+function PaymentDialog({ open, handleClose, order }) {
   const dispatch = useDispatch();
 
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [amountPaid, setAmountPaid] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (order) {
+    if (order && open) {
       setPaymentMethod(order.paymentMethod || "Cash");
-      setAmountPaid(order.amountPaid || "");
+      setAmountPaid("");
     }
-  }, [order]);
+  }, [order, open]);
 
   if (!order) return null;
 
-  const total = Number(order.total);
-  const paid = Number(amountPaid) || 0;
+  const total = Number(order.total) || 0;
+  const previouslyPaid = Number(order.amountPaid) || 0;
+  const newPayment = Number(amountPaid) || 0;
 
-  // Remaining balance
-  const balance = paid >= total ? 0 : total - paid;
+  const totalPaid = previouslyPaid + newPayment;
+  const balance = Math.max(total - totalPaid, 0);
+  const change = Math.max(totalPaid - total, 0);
 
-  // Change to return
-  const change = paid > total ? paid - total : 0;
+  const paymentStatus =
+    totalPaid >= total
+      ? "Paid"
+      : totalPaid > 0
+      ? "Partial"
+      : "Unpaid";
 
-  const handleSave = () => {
-    dispatch(
-      updatePayment({
-        id: order.id,
-        paymentMethod,
-        amountPaid: paid,
-      })
-    );
+  const handleSave = async () => {
+    if (saving) return;
 
-    handleClose();
+    if (!Number.isFinite(newPayment) || newPayment <= 0) {
+      window.alert("Enter a payment amount greater than zero.");
+      return;
+    }
+
+    if (previouslyPaid >= total) {
+      window.alert("This order has already been fully paid.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await dispatch(
+        updateOrderInApi({
+          ...order,
+          paymentMethod,
+          amountPaid: totalPaid,
+          balance,
+          change,
+          paymentStatus,
+          paymentDate: new Date().toISOString(),
+        })
+      ).unwrap();
+
+      handleClose();
+    } catch (error) {
+      console.error("Failed to save payment:", error);
+      window.alert(
+        typeof error === "string"
+          ? error
+          : "Payment could not be saved. Please try again."
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <Dialog
       open={open}
-      onClose={handleClose}
+      onClose={saving ? undefined : handleClose}
       maxWidth="sm"
       fullWidth
     >
       <DialogTitle>Receive Payment</DialogTitle>
 
       <DialogContent>
-        <Typography
-          variant="h6"
-          sx={{ mb: 2 }}
-        >
+        <Typography variant="h6" sx={{ mb: 2 }}>
           {order.customer}
         </Typography>
 
@@ -79,9 +109,7 @@ function PaymentDialog({
           label="Payment Method"
           select
           value={paymentMethod}
-          onChange={(e) =>
-            setPaymentMethod(e.target.value)
-          }
+          onChange={(e) => setPaymentMethod(e.target.value)}
         >
           <MenuItem value="Cash">Cash</MenuItem>
           <MenuItem value="M-Pesa">M-Pesa</MenuItem>
@@ -92,82 +120,56 @@ function PaymentDialog({
           fullWidth
           margin="normal"
           type="number"
-          label="Amount Paid"
+          label="New Payment Amount"
           value={amountPaid}
-          onChange={(e) =>
-            setAmountPaid(e.target.value)
-          }
+          onChange={(e) => setAmountPaid(e.target.value)}
+          inputProps={{ min: 0.01, step: "0.01" }}
         />
 
         <Divider sx={{ my: 2 }} />
 
-        <Box
-          sx={{
-            p: 2,
-            bgcolor: "#f8f9fa",
-            borderRadius: 2,
-            border: "1px solid #e0e0e0",
-          }}
-        >
+        <Box sx={{ p: 2, bgcolor: "#f8f9fa", borderRadius: 2 }}>
           <Typography sx={{ mb: 1 }}>
-            <strong>Total Amount:</strong> KES {total}
+            <strong>Order Total:</strong> KES {total.toLocaleString()}
+          </Typography>
+
+          <Typography sx={{ mb: 1 }}>
+            <strong>Previously Paid:</strong> KES {previouslyPaid.toLocaleString()}
+          </Typography>
+
+          <Typography color="primary.main" sx={{ mb: 1 }}>
+            <strong>Total Paid After This Payment:</strong>{" "}
+            KES {totalPaid.toLocaleString()}
           </Typography>
 
           <Typography
-            color="primary.main"
+            color={balance === 0 ? "success.main" : "error.main"}
             sx={{ mb: 1 }}
           >
-            <strong>Amount Paid:</strong> KES {paid}
+            <strong>Remaining Balance:</strong> KES {balance.toLocaleString()}
           </Typography>
 
-          <Typography
-            color={
-              balance === 0
-                ? "success.main"
-                : "error.main"
-            }
-            sx={{ mb: 1 }}
-          >
-            <strong>Balance:</strong> KES {balance}
+          <Typography color="info.main" sx={{ mb: 1 }}>
+            <strong>Change:</strong> KES {change.toLocaleString()}
           </Typography>
 
-          <Typography
-            color="info.main"
-            sx={{ mb: 1 }}
-          >
-            <strong>Change:</strong> KES {change}
-          </Typography>
-
-          <Typography
-            color={
-              paid >= total
-                ? "success.main"
-                : paid > 0
-                ? "warning.main"
-                : "error.main"
-            }
-            fontWeight="bold"
-          >
-            Status:{" "}
-            {paid >= total
-              ? "Paid"
-              : paid > 0
-              ? "Partial Payment"
-              : "Pending"}
+          <Typography fontWeight="bold">
+            Payment Status: {paymentStatus}
           </Typography>
         </Box>
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={handleClose}>
+        <Button onClick={handleClose} disabled={saving}>
           Cancel
         </Button>
 
         <Button
           variant="contained"
           onClick={handleSave}
+          disabled={saving}
         >
-          Save Payment
+          {saving ? "Saving..." : "Save Payment"}
         </Button>
       </DialogActions>
     </Dialog>
