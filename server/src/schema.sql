@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS orders (
     customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
     customer VARCHAR(150) NOT NULL,
     phone VARCHAR(30),
-    service VARCHAR(100) NOT NULL,
+    service VARCHAR(255) NOT NULL,
     quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
     delivery_date DATE,
     status VARCHAR(30) NOT NULL DEFAULT 'Received',
@@ -35,14 +35,36 @@ CREATE TABLE IF NOT EXISTS orders (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS payments (
+CREATE TABLE IF NOT EXISTS order_items (
     id SERIAL PRIMARY KEY,
-    order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
-    method VARCHAR(50),
+    order_id INTEGER NOT NULL
+        REFERENCES orders(id) ON DELETE CASCADE,
+    service VARCHAR(150) NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    unit_price NUMERIC(12, 2) NOT NULL CHECK (unit_price >= 0),
+    line_total NUMERIC(12, 2) NOT NULL CHECK (line_total >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
-CREATE INDEX IF NOT EXISTS idx_orders_delivery_date ON orders(delivery_date);
-CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
+CREATE TABLE IF NOT EXISTS payments (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL
+        REFERENCES orders(id) ON DELETE CASCADE,
+    amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
+    method VARCHAR(50),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    payment_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    transaction_reference TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_orders_status
+    ON orders(status);
+
+CREATE INDEX IF NOT EXISTS idx_orders_delivery_date
+    ON orders(delivery_date);
+
+CREATE INDEX IF NOT EXISTS idx_order_items_order_id
+    ON order_items(order_id);
+
+CREATE INDEX IF NOT EXISTS idx_payments_order_id
+    ON payments(order_id);
