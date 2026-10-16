@@ -1,13 +1,15 @@
 
-const API_URL = "http://localhost:5000/api/orders";
+import API_BASE_URL from "../services/api";
+
+const API_URL = `${API_BASE_URL}/api/orders`;
 
 async function request(url, options = {}) {
   const response = await fetch(url, {
+    ...options,
     headers: {
       "Content-Type": "application/json",
       ...options.headers,
     },
-    ...options,
   });
 
   const data = await response.json().catch(() => ({}));
