@@ -1,3 +1,4 @@
+
 import {
   Drawer,
   List,
@@ -34,68 +35,72 @@ function Sidebar({ mobileOpen, onClose, onNavigate }) {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   const user = useSelector((state) => state.auth.user);
-  const role = user?.role || "Guest";
+
+  // Normalize the role to avoid case-sensitive permission mismatches.
+  const role = String(user?.role || "Guest")
+    .trim()
+    .toLowerCase();
 
   const menuItems = [
     {
       text: "Dashboard",
       icon: <DashboardIcon />,
       path: "/",
-      roles: ["Admin", "Manager", "Cashier", "Attendant"],
+      roles: ["admin", "manager", "cashier", "attendant"],
     },
     {
       text: "Orders",
       icon: <LocalLaundryServiceIcon />,
       path: "/orders",
-      roles: ["Admin", "Manager", "Cashier", "Attendant"],
+      roles: ["admin", "manager", "cashier", "attendant"],
     },
     {
       text: "Customers",
       icon: <PeopleIcon />,
       path: "/customers",
-      roles: ["Admin", "Manager", "Cashier"],
+      roles: ["admin", "manager", "cashier"],
     },
     {
       text: "Inventory",
       icon: <Inventory2Icon />,
       path: "/inventory",
-      roles: ["Admin", "Manager"],
+      roles: ["admin", "manager"],
     },
     {
       text: "Pricing",
       icon: <SellIcon />,
       path: "/pricing",
-      roles: ["Admin", "Manager"],
+      roles: ["admin", "manager"],
     },
     {
       text: "Payments",
       icon: <PaymentsIcon />,
       path: "/payments",
-      roles: ["Admin", "Manager", "Cashier"],
+      roles: ["admin", "manager", "cashier"],
     },
     {
       text: "Receipts",
       icon: <ReceiptLongIcon />,
       path: "/receipts",
-      roles: ["Admin", "Manager", "Cashier"],
+      roles: ["admin", "manager", "cashier"],
     },
     {
       text: "Reports",
       icon: <AssessmentIcon />,
       path: "/reports",
-      roles: ["Admin", "Manager"],
+      roles: ["admin", "manager"],
     },
     {
       text: "Users",
       icon: <GroupIcon />,
       path: "/users",
-      roles: ["Admin"],
+      roles: ["admin"],
     },
     {
       text: "Settings",
       icon: <SettingsIcon />,
       path: "/settings",
-      roles: ["Admin"],
+      roles: ["admin"],
     },
   ];
 
@@ -164,7 +169,7 @@ function Sidebar({ mobileOpen, onClose, onNavigate }) {
             color="primary"
             sx={{ fontWeight: 600 }}
           >
-            {role}
+            {user?.role || "Guest"}
           </Typography>
         </Box>
       </Box>
@@ -198,7 +203,8 @@ function Sidebar({ mobileOpen, onClose, onNavigate }) {
                 borderRadius: 2,
                 px: 2,
                 color: "#536176",
-                transition: "background-color 0.2s ease, color 0.2s ease",
+                transition:
+                  "background-color 0.2s ease, color 0.2s ease",
 
                 "&:hover": {
                   bgcolor: "#f1f6fd",
