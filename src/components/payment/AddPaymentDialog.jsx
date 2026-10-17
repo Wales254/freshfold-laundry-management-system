@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 
 import { fetchOrdersFromApi } from "../../redux/orderSlice";
+import API_BASE_URL from "../../services/api";
 
 import {
   Dialog,
@@ -16,23 +17,33 @@ import {
   Alert,
 } from "@mui/material";
 
+const getTodayDate = () => {
+  const now = new Date();
+  const localDate = new Date(
+    now.getTime() - now.getTimezoneOffset() * 60000
+  );
+
+  return localDate.toISOString().slice(0, 10);
+};
+
+const initialForm = () => ({
+  orderId: "",
+  paymentMethod: "Cash",
+  amountPaid: "",
+  transactionCode: "",
+  paymentDate: getTodayDate(),
+});
+
 function AddPaymentDialog({ open, handleClose }) {
   const dispatch = useDispatch();
-
   const orders = useSelector((state) => state.orders.orders);
 
-  const [form, setForm] = useState({
-    orderId: "",
-    paymentMethod: "Cash",
-    amountPaid: "",
-    transactionCode: "",
-  });
-
+  const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const handleChange = (event) => {
+    const { name, value } = event.target;
 
     setForm((previous) => ({
       ...previous,
@@ -43,13 +54,14 @@ function AddPaymentDialog({ open, handleClose }) {
   };
 
   const resetForm = () => {
-    setForm({
-      orderId: "",
-      paymentMethod: "Cash",
-      amountPaid: "",
-      transactionCode: "",
-    });
+    setForm(initialForm());
     setError("");
+  };
+
+  const handleDialogClose = () => {
+    if (saving) return;
+    resetForm();
+    handleClose();
   };
 
   const handleSave = async () => {
@@ -60,92 +72,77 @@ function AddPaymentDialog({ open, handleClose }) {
     );
 
     const paymentAmount = Number(form.amountPaid);
+    const transactionCode = form.transactionCode.trim();
 
     if (!order) {
       setError("Please select a valid order.");
       return;
     }
 
-    if (
-      !Number.isFinite(paymentAmount) ||
-      paymentAmount <= 0
-    ) {
+    if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
       setError("Enter a payment amount greater than zero.");
+      return;
+    }
+
+    if (!form.paymentDate) {
+      setError("Please select the payment date.");
       return;
     }
 
     if (
       form.paymentMethod !== "Cash" &&
-      !form.transactionCode.trim()
+      !transactionCode
     ) {
       setError("Enter the transaction code.");
       return;
     }
 
-    const currentPaid = Number(order.amountPaid) || 0;
-    const total = Number(order.total) || 0;
-    const newAmountPaid =
-      Math.round((currentPaid + paymentAmount) * 100) / 100;
-
-    const balance =
-      Math.max(0, Math.round((total - newAmountPaid) * 100) / 100);
-
-    const change =
-      Math.max(0, Math.round((newAmountPaid - total) * 100) / 100);
-
-    const paymentStatus =
-      newAmountPaid >= total
-        ? "Paid"
-        : newAmountPaid > 0
-        ? "Partial"
-        : "Unpaid";
-
     setSaving(true);
     setError("");
 
     try {
-  const response = await fetch(
-    `http://localhost:5000/api/orders/${order.id}/payments`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        amount: paymentAmount,
-        method: form.paymentMethod,
-        transactionReference: form.transactionCode.trim() || null,
-      }),
+      const response = await fetch(
+        `${API_BASE_URL}/api/orders/${order.id}/payments`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            amount: paymentAmount,
+            method: form.paymentMethod,
+            paymentDate: form.paymentDate,
+            transactionReference: transactionCode || null,
+          }),
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to save payment.");
+      }
+
+      await dispatch(fetchOrdersFromApi()).unwrap();
+
+      resetForm();
+      handleClose();
+    } catch (err) {
+      console.error("Failed to save payment:", err);
+
+      setError(
+        err?.message ||
+          "Failed to save the payment. Please try again."
+      );
+    } finally {
+      setSaving(false);
     }
-  );
-
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(data.message || "Failed to save payment.");
-  }
-
-  await dispatch(fetchOrdersFromApi()).unwrap();
-
-  resetForm();
-  handleClose();
-} catch (err) {
-  console.error("Failed to save payment:", err);
-
-  setError(
-    typeof err === "string"
-      ? err
-      : err?.message || "Failed to save the payment. Please try again."
-  );
-} finally {
-  setSaving(false);
-}
-};
+  };
 
   return (
     <Dialog
       open={open}
-      onClose={saving ? undefined : handleClose}
+      onClose={handleDialogClose}
       fullWidth
       maxWidth="sm"
     >
@@ -189,6 +186,7 @@ function AddPaymentDialog({ open, handleClose }) {
               value={form.paymentMethod}
               onChange={handleChange}
               disabled={saving}
+              required
             >
               <MenuItem value="Cash">Cash</MenuItem>
               <MenuItem value="M-Pesa">M-Pesa</MenuItem>
@@ -201,13 +199,31 @@ function AddPaymentDialog({ open, handleClose }) {
             <TextField
               fullWidth
               type="number"
-              label="Amount Paid"
+              label="Amount Paid (KES)"
               name="amountPaid"
               value={form.amountPaid}
               onChange={handleChange}
-              inputProps={{ min: 0.01, step: 0.01 }}
+              slotProps={{
+                htmlInput: { min: 0.01, step: 0.01 },
+              }}
               disabled={saving}
               required
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12 }}>
+            <TextField
+              fullWidth
+              type="date"
+              label="Payment Date"
+              name="paymentDate"
+              value={form.paymentDate}
+              onChange={handleChange}
+              disabled={saving}
+              required
+              slotProps={{
+                inputLabel: { shrink: true },
+              }}
             />
           </Grid>
 
@@ -215,11 +231,12 @@ function AddPaymentDialog({ open, handleClose }) {
             <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
-                label="Transaction Code"
+                label="Transaction Code / Reference"
                 name="transactionCode"
                 value={form.transactionCode}
                 onChange={handleChange}
                 disabled={saving}
+                required
               />
             </Grid>
           )}
@@ -227,7 +244,7 @@ function AddPaymentDialog({ open, handleClose }) {
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={handleClose} disabled={saving}>
+        <Button onClick={handleDialogClose} disabled={saving}>
           Cancel
         </Button>
 

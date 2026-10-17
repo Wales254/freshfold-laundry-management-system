@@ -12,117 +12,202 @@ import {
   Chip,
   IconButton,
   Tooltip,
+  Typography,
 } from "@mui/material";
 
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 
 import ReceiptDialog from "../receipt/ReceiptDialog";
 
+const formatAmount = (amount) =>
+  `KES ${Number(amount || 0).toLocaleString("en-KE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+const formatPaymentDate = (value) => {
+  if (!value) return "-";
+
+  // Preserve date-only values without timezone conversion.
+  const dateOnly = String(value).match(/^\d{4}-\d{2}-\d{2}$/);
+
+  if (dateOnly) {
+    const [year, month, day] = value.split("-");
+    return `${day}/${month}/${year}`;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Africa/Nairobi",
+  }).format(date);
+};
+
 function PaymentTable({ search, statusFilter, methodFilter }) {
   const orders = useSelector((state) => state.orders.orders);
 
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  // Search orders
-  const term = (search || "").toLowerCase();
+  const term = (search || "").trim().toLowerCase();
 
-  let filteredOrders = orders.filter((order) => {
-    const latestPayment =
-      order.payments?.[order.payments.length - 1];
-
-    const transactionCode =
-      latestPayment?.transactionCode || "";
-
-    return (
-      (order.customer || "").toLowerCase().includes(term) ||
-      (order.phone || "").toLowerCase().includes(term) ||
-      String(order.id).includes(term) ||
-      transactionCode.toLowerCase().includes(term)
-    );
-  });
-
-  // Normalize older payment statuses
   const getPaymentStatus = (order) => {
-    const status = order.paymentStatus;
+    const status = String(order.paymentStatus || "")
+      .trim()
+      .toLowerCase();
 
-    if (!status || status === "Pending") {
+    if (
+      !status ||
+      status === "pending" ||
+      status === "unpaid"
+    ) {
       return "Unpaid";
     }
 
     if (
-      status === "Partial Payment" ||
-      status === "Partially Paid"
+      status === "partial" ||
+      status === "partial payment" ||
+      status === "partially paid"
     ) {
       return "Partial";
     }
 
-    return status;
+    if (status === "paid") {
+      return "Paid";
+    }
+
+    return order.paymentStatus;
   };
 
-  // Filter by payment status
-  if (statusFilter !== "All") {
-    filteredOrders = filteredOrders.filter(
-      (order) => getPaymentStatus(order) === statusFilter
-    );
-  }
+  // Flatten the orders into individual installment rows.
+  const paymentRows = orders.flatMap((order) => {
+    const payments = Array.isArray(order.payments)
+      ? order.payments
+      : [];
 
-  // Filter by payment method
-  if (methodFilter !== "All") {
-    filteredOrders = filteredOrders.filter((order) => {
-      const latestPayment =
-        order.payments?.[order.payments.length - 1];
+    // Keep unpaid orders visible when no installment exists.
+    if (payments.length === 0) {
+      return [{
+        rowId: `order-${order.id}-unpaid`,
+        order,
+        payment: null,
+      }];
+    }
 
-      return latestPayment?.method === methodFilter;
-    });
-  }
+    return payments.map((payment, index) => ({
+      rowId: `order-${order.id}-payment-${payment.id ?? index}`,
+      order,
+      payment,
+    }));
+  });
+
+  const filteredRows = paymentRows.filter(({ order, payment }) => {
+    const paymentStatus = getPaymentStatus(order);
+    const paymentMethod =
+      payment?.method || order.paymentMethod || "";
+    const transactionCode =
+      payment?.transactionCode ||
+      payment?.transactionReference ||
+      "";
+    const paymentDate =
+      payment?.date ||
+      payment?.paymentDate ||
+      payment?.createdAt ||
+      "";
+
+    const matchesSearch =
+      !term ||
+      String(order.id).toLowerCase().includes(term) ||
+      String(order.customer || "").toLowerCase().includes(term) ||
+      String(order.phone || "").toLowerCase().includes(term) ||
+      String(paymentMethod).toLowerCase().includes(term) ||
+      String(transactionCode).toLowerCase().includes(term) ||
+      String(paymentDate).toLowerCase().includes(term);
+
+    const matchesStatus =
+      statusFilter === "All" ||
+      paymentStatus === statusFilter;
+
+    const matchesMethod =
+      methodFilter === "All" ||
+      paymentMethod === methodFilter;
+
+    return matchesSearch && matchesStatus && matchesMethod;
+  });
 
   return (
     <>
-      <Paper elevation={3} sx={{ overflowX: "auto" }}>
-        <Table>
+      <Paper elevation={3} sx={{ width: "100%", overflowX: "auto" }}>
+        <Table sx={{ minWidth: 1150 }}>
           <TableHead>
             <TableRow>
               <TableCell><strong>Order #</strong></TableCell>
               <TableCell><strong>Customer</strong></TableCell>
               <TableCell><strong>Method</strong></TableCell>
-              <TableCell align="right"><strong>Total</strong></TableCell>
-              <TableCell align="right"><strong>Paid</strong></TableCell>
+              <TableCell align="right"><strong>Installment</strong></TableCell>
+              <TableCell align="right"><strong>Order Total</strong></TableCell>
+              <TableCell align="right"><strong>Total Paid</strong></TableCell>
               <TableCell align="right"><strong>Balance</strong></TableCell>
               <TableCell><strong>Status</strong></TableCell>
-              <TableCell><strong>Transaction</strong></TableCell>
-              <TableCell><strong>Date</strong></TableCell>
+              <TableCell><strong>Transaction Code</strong></TableCell>
+              <TableCell><strong>Payment Date</strong></TableCell>
               <TableCell align="center"><strong>Receipt</strong></TableCell>
             </TableRow>
           </TableHead>
 
           <TableBody>
-            {filteredOrders.length > 0 ? (
-              filteredOrders.map((order) => {
-                const latestPayment =
-                  order.payments?.[order.payments.length - 1];
-
+            {filteredRows.length > 0 ? (
+              filteredRows.map(({ rowId, order, payment }) => {
                 const paymentStatus = getPaymentStatus(order);
 
+                const method =
+                  payment?.method ||
+                  order.paymentMethod ||
+                  "-";
+
+                const transactionCode =
+                  payment?.transactionCode ||
+                  payment?.transactionReference ||
+                  "-";
+
+                const paymentDate =
+                  payment?.date ||
+                  payment?.paymentDate ||
+                  payment?.createdAt ||
+                  (!payment ? order.paymentDate : null);
+
                 return (
-                  <TableRow key={order.id} hover>
+                  <TableRow key={rowId} hover>
                     <TableCell>#{order.id}</TableCell>
 
-                    <TableCell>{order.customer || "-"}</TableCell>
-
                     <TableCell>
-                      {latestPayment?.method || "-"}
+                      {order.customer || "-"}
+                    </TableCell>
+
+                    <TableCell>{method}</TableCell>
+
+                    <TableCell align="right">
+                      {payment
+                        ? formatAmount(payment.amount)
+                        : "-"}
                     </TableCell>
 
                     <TableCell align="right">
-                      KES {Number(order.total || 0).toLocaleString()}
+                      {formatAmount(order.total)}
                     </TableCell>
 
                     <TableCell align="right">
-                      KES {Number(order.amountPaid || 0).toLocaleString()}
+                      {formatAmount(order.amountPaid)}
                     </TableCell>
 
                     <TableCell align="right">
-                      KES {Number(order.balance || 0).toLocaleString()}
+                      {formatAmount(order.balance)}
                     </TableCell>
 
                     <TableCell>
@@ -133,18 +218,23 @@ function PaymentTable({ search, statusFilter, methodFilter }) {
                           paymentStatus === "Paid"
                             ? "success"
                             : paymentStatus === "Partial"
-                            ? "warning"
-                            : "error"
+                              ? "warning"
+                              : "error"
                         }
                       />
                     </TableCell>
 
-                    <TableCell>
-                      {latestPayment?.transactionCode || "-"}
+                    <TableCell
+                      sx={{
+                        maxWidth: 180,
+                        overflowWrap: "anywhere",
+                      }}
+                    >
+                      {transactionCode}
                     </TableCell>
 
                     <TableCell>
-                      {latestPayment?.date || "-"}
+                      {formatPaymentDate(paymentDate)}
                     </TableCell>
 
                     <TableCell align="center">
@@ -163,8 +253,10 @@ function PaymentTable({ search, statusFilter, methodFilter }) {
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={10} align="center">
-                  No payments found.
+                <TableCell colSpan={11} align="center">
+                  <Typography sx={{ py: 2 }}>
+                    No payments found.
+                  </Typography>
                 </TableCell>
               </TableRow>
             )}
