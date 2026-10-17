@@ -1,39 +1,271 @@
-/* ===================================================
-   RECEIPT CONTAINER
-=================================================== */
-#receipt-content {
-  position: relative;       /* allow pseudo-element layering */
-  max-width: 800px;
-  margin: 20px auto;
-  padding: 25px;
-  background: #ffffff;      /* fallback */
-  border-radius: 12px;
-  border: 1px solid #dce3ea;
-  box-shadow: 0 10px 30px rgba(0,0,0,.1);
-  color: #222;
-  overflow: hidden;         /* keep background inside */
-}
 
 /* ===================================================
-   PHOTO BACKGROUND LAYER
+   FRESHFOLD — RECEIPT CONTAINER
 =================================================== */
+
+#receipt-content {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  max-width: 800px;
+  margin: 20px auto;
+  padding: 28px;
+  box-sizing: border-box;
+
+  background: #ffffff;
+  color: #1f2937;
+  border: 1px solid #dbe3ec;
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.09);
+
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+  overflow: hidden;
+}
+
+/* Subtle background image behind receipt content */
 #receipt-content::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: url("/laundry.jfif") center/cover no-repeat; /* must be in /public */
-  opacity: 0.15;            /* adjust transparency */
-  z-index: -1;              /* behind text */
+  z-index: -1;
+  pointer-events: none;
+
+  background:
+    linear-gradient(
+      rgba(255, 255, 255, 0.94),
+      rgba(255, 255, 255, 0.96)
+    ),
+    url("/laundry.jfif") center / cover no-repeat;
+
+  opacity: 1;
+}
+
+/* Keep receipt elements above the background */
+#receipt-content > * {
+  position: relative;
 }
 
 /* ===================================================
    HEADER
 =================================================== */
-.receipt-header {
-  background: linear-gradient(135deg,#1565c0,#42a5f5);
-  color: white;
-  padding: 20px;
+
+#receipt-content .receipt-header {
+  margin-bottom: 24px;
+  padding: 24px 20px;
+
+  color: #ffffff;
+  background: linear-gradient(135deg, #0d47a1, #2196f3);
   border-radius: 10px;
-  text-align: center;       /* keep header centered */
-  margin-bottom: 20px;
+  text-align: center;
+}
+
+#receipt-content .receipt-header h1,
+#receipt-content .receipt-header h2,
+#receipt-content .receipt-header h3 {
+  margin: 0 0 6px;
+  color: inherit;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+#receipt-content .receipt-header p {
+  margin: 4px 0;
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+
+/* ===================================================
+   SECTION HEADINGS
+=================================================== */
+
+#receipt-content h4,
+#receipt-content h5 {
+  margin: 22px 0 10px;
+  padding-bottom: 8px;
+
+  color: #123b68;
+  font-weight: 700;
+  border-bottom: 1px solid #dbe5ef;
+}
+
+/* ===================================================
+   TEXT AND DETAILS
+=================================================== */
+
+#receipt-content p {
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+}
+
+#receipt-content strong {
+  color: #172b43;
+}
+
+#receipt-content .receipt-details,
+#receipt-content .receipt-summary {
+  margin-bottom: 18px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+/* ===================================================
+   TABLES — ITEMS AND PAYMENT HISTORY
+=================================================== */
+
+#receipt-content table {
+  width: 100%;
+  margin: 12px 0 20px;
+  border-collapse: collapse;
+  background: rgba(255, 255, 255, 0.96);
+  font-size: 13px;
+}
+
+#receipt-content thead {
+  background: #eaf2fb;
+}
+
+#receipt-content th {
+  padding: 11px 10px;
+  color: #123b68;
+  font-weight: 700;
+  text-align: left;
+  border: 1px solid #d8e2ed;
+}
+
+#receipt-content td {
+  padding: 10px;
+  color: #374151;
+  border: 1px solid #e2e8f0;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+#receipt-content tbody tr:nth-child(even) {
+  background: rgba(248, 250, 252, 0.95);
+}
+
+/* ===================================================
+   TOTALS AND BALANCE
+=================================================== */
+
+#receipt-content .receipt-total,
+#receipt-content .receipt-summary {
+  break-inside: avoid;
+}
+
+#receipt-content .receipt-total {
+  margin-top: 16px;
+  padding: 15px;
+  background: #f0f7ff;
+  border: 1px solid #c9def5;
+  border-radius: 8px;
+}
+
+#receipt-content .receipt-total p:last-child {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+#receipt-content .receipt-balance {
+  color: #b45309;
+  font-weight: 700;
+}
+
+/* ===================================================
+   FOOTER AND SIGNATURE
+=================================================== */
+
+#receipt-content .receipt-footer {
+  margin-top: 26px;
+  padding-top: 15px;
+  color: #64748b;
+  text-align: center;
+  border-top: 1px dashed #cbd5e1;
+  font-size: 12px;
+}
+
+#receipt-content .receipt-signature {
+  margin-top: 24px;
+  padding-top: 12px;
+  border-top: 1px solid #94a3b8;
+}
+
+/* ===================================================
+   RESPONSIVE LAYOUT
+=================================================== */
+
+@media (max-width: 600px) {
+  #receipt-content {
+    margin: 8px auto;
+    padding: 16px;
+    border-radius: 10px;
+    font-size: 13px;
+  }
+
+  #receipt-content .receipt-header {
+    padding: 18px 12px;
+  }
+
+  #receipt-content table {
+    font-size: 11px;
+  }
+
+  #receipt-content th,
+  #receipt-content td {
+    padding: 7px 6px;
+  }
+}
+
+/* ===================================================
+   PRINT AND RECEIPT PDF SOURCE
+=================================================== */
+
+@media print {
+  #receipt-content {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 12px;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+    color: #111827;
+    background: #ffffff;
+    font-size: 11px;
+  }
+
+  #receipt-content::before {
+    display: none;
+  }
+
+  #receipt-content .receipt-header {
+    color: #ffffff !important;
+    background: #1565c0 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  #receipt-content table {
+    break-inside: auto;
+  }
+
+  #receipt-content tr,
+  #receipt-content .receipt-details,
+  #receipt-content .receipt-summary,
+  #receipt-content .receipt-total {
+    break-inside: avoid;
+  }
+
+  #receipt-content thead {
+    display: table-header-group;
+  }
+
+  #receipt-content tfoot {
+    display: table-footer-group;
+  }
 }
