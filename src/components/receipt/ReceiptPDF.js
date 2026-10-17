@@ -1,3 +1,4 @@
+
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -7,11 +8,51 @@ import {
   formatDateTime,
 } from "../../utils/receiptUtils";
 
-const generateReceiptPDF = (order, payment) => {
+const formatReceiptDate = (value) => {
+  if (!value) return "N/A";
+
+  try {
+    return formatDateTime(value);
+  } catch {
+    return String(value);
+  }
+};
+
+const generateReceiptPDF = (order, payments = [], staffName = "") => {
+  if (!order) return;
+
   const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 14;
 
   const receiptNumber =
     order.receiptNo || generateReceiptNumber(order.id);
+
+  const allPayments = Array.isArray(payments) ? payments : [];
+
+  const totalPaid = allPayments.length
+    ? allPayments.reduce(
+        (sum, item) => sum + Number(item.amount || 0),
+        0
+      )
+    : Number(order.amountPaid || 0);
+
+  const orderTotal = Number(order.total || 0);
+  const balance = Math.max(
+    0,
+    Number(order.balance ?? orderTotal - totalPaid)
+  );
+
+  const services =
+    Array.isArray(order.services) && order.services.length
+      ? order.services
+      : [order];
+
+  const latestPayment =
+    allPayments.length > 0
+      ? allPayments[allPayments.length - 1]
+      : null;
 
   // ===========================
   // BUSINESS HEADER
@@ -21,30 +62,38 @@ const generateReceiptPDF = (order, payment) => {
   doc.setFontSize(22);
   doc.setTextColor(25, 118, 210);
 
-  doc.text("FreshFold Laundry", 105, 18, {
+  doc.text("FreshFold Laundry", pageWidth / 2, 18, {
     align: "center",
   });
 
-  doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
   doc.setTextColor(80);
 
   doc.text(
     "Professional Laundry & Dry Cleaning Services",
-    105,
+    pageWidth / 2,
     26,
     { align: "center" }
   );
 
-  doc.text("Nairobi, Kenya", 105, 32, {
+  doc.text("Nairobi, Kenya", pageWidth / 2, 32, {
     align: "center",
   });
 
-  doc.text("Tel: +254 700 000 000", 105, 38, {
+  doc.text("Tel: +254 700 000 000", pageWidth / 2, 38, {
     align: "center",
   });
 
-  doc.text("Email: info@freshfold.co.ke", 105, 44, {
+  doc.text("Email: info@freshfold.co.ke", pageWidth / 2, 44, {
+    align: "center",
+  });
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(0);
+
+  doc.text("PAYMENT RECEIPT", pageWidth / 2, 52, {
     align: "center",
   });
 
@@ -52,29 +101,38 @@ const generateReceiptPDF = (order, payment) => {
   // RECEIPT INFORMATION
   // ===========================
 
-  let y = 56;
+  let y = 62;
 
-  doc.setFontSize(12);
-  doc.setTextColor(0);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
 
-  doc.text(`Receipt No: ${receiptNumber}`, 14, y);
-  doc.text(`Order No: #${order.id}`, 110, y);
+  doc.text(`Receipt No: ${receiptNumber}`, margin, y);
+  doc.text(`Order No: #${order.id}`, pageWidth / 2, y);
 
-  y += 8;
+  y += 7;
 
   doc.text(
-    `Date: ${formatDateTime(
-      payment?.date || new Date()
+    `Receipt Date: ${formatReceiptDate(
+      latestPayment?.date ||
+        latestPayment?.createdAt ||
+        new Date()
     )}`,
-    14,
+    margin,
     y
   );
 
   doc.text(
-    `Attendant: ${
-      order.attendant || "Front Desk"
-    }`,
-    110,
+    `Attended By: ${staffName || "Staff name unavailable"}`,
+    pageWidth / 2,
+    y
+  );
+
+  y += 7;
+
+  doc.text(`Order Status: ${order.status || "N/A"}`, margin, y);
+  doc.text(
+    `Delivery Date: ${order.deliveryDate || "N/A"}`,
+    pageWidth / 2,
     y
   );
 
@@ -82,281 +140,291 @@ const generateReceiptPDF = (order, payment) => {
   // CUSTOMER INFORMATION
   // ===========================
 
-  y += 14;
+  y += 12;
 
   doc.setFont("helvetica", "bold");
-  doc.text("Customer Information", 14, y);
+  doc.setFontSize(12);
+  doc.text("Customer Information", margin, y);
+
+  y += 7;
 
   doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
 
-  y += 8;
+  doc.text(
+    `Customer: ${String(order.customer || "N/A")}`,
+    margin,
+    y
+  );
 
-  doc.text(`Customer: ${order.customer}`, 14, y);
+  y += 6;
 
-  y += 8;
-
-  doc.text(`Phone: ${order.phone}`, 14, y);
+  doc.text(
+    `Phone: ${String(order.phone || "N/A")}`,
+    margin,
+    y
+  );
 
   // ===========================
   // ORDER DETAILS
   // ===========================
 
-  const services =
-    order.services && order.services.length
-      ? order.services
-      : [order];
+  y += 6;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.text("Order Details", margin, y);
 
   autoTable(doc, {
-    startY: y + 10,
+    startY: y + 4,
+    margin: { left: margin, right: margin, bottom: 18 },
+    head: [["Service", "Quantity", "Unit Price", "Total"]],
+    body: services.map((item) => {
+      const quantity = Number(item.quantity || 0);
+      const itemTotal = Number(item.total || 0);
+      const unitPrice =
+        quantity > 0 ? itemTotal / quantity : itemTotal;
 
-    head: [
-      [
-        "Service",
-        "Quantity",
-        "Unit Price",
-        "Total",
-      ],
-    ],
-
-    body: services.map((item) => [
-      item.service,
-      item.quantity,
-      formatCurrency(
-        item.quantity > 0
-          ? item.total / item.quantity
-          : item.total
-      ),
-      formatCurrency(item.total),
-    ]),
-
+      return [
+        String(item.service || "Service"),
+        quantity || "—",
+        formatCurrency(unitPrice),
+        formatCurrency(itemTotal),
+      ];
+    }),
+    theme: "grid",
     headStyles: {
       fillColor: [25, 118, 210],
       halign: "center",
     },
-
-    bodyStyles: {
-      halign: "center",
-    },
-
     styles: {
-      fontSize: 10,
+      font: "helvetica",
+      fontSize: 9,
+      cellPadding: 3,
+      overflow: "linebreak",
+    },
+    columnStyles: {
+      1: { halign: "center", cellWidth: 22 },
+      2: { halign: "right", cellWidth: 36 },
+      3: { halign: "right", cellWidth: 36 },
     },
   });
 
   y = doc.lastAutoTable.finalY + 12;
 
+  // Start the next section on a fresh page if little space remains.
+  if (y > pageHeight - 65) {
+    doc.addPage();
+    y = 20;
+  }
+
   // ===========================
-  // ORDER STATUS
+  // INSTALLMENT HISTORY
   // ===========================
 
   doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(0);
 
-  doc.text("Order Status", 14, y);
+  doc.text("Payment History - All Installments", margin, y);
 
-  doc.setFont("helvetica", "normal");
+  autoTable(doc, {
+    startY: y + 4,
+    margin: { left: margin, right: margin, bottom: 18 },
+    head: [[
+      "#",
+      "Payment Date",
+      "Method",
+      "Transaction Code",
+      "Amount",
+    ]],
+    body: allPayments.length
+      ? allPayments.map((item, index) => {
+          const method = String(item.method || "N/A");
+          const isCash = method.toLowerCase() === "cash";
 
-  y += 8;
+          const code = isCash
+            ? "—"
+            : item.transactionCode ||
+              item.transactionReference ||
+              item.transaction_reference ||
+              "Not recorded";
 
-  doc.text(
-    `Current Status: ${order.status}`,
-    14,
-    y
-  );
+          return [
+            index + 1,
+            formatReceiptDate(item.date || item.createdAt),
+            method,
+            String(code),
+            formatCurrency(Number(item.amount || 0)),
+          ];
+        })
+      : [[
+          "—",
+          "N/A",
+          "N/A",
+          "No payment records available",
+          formatCurrency(Number(order.amountPaid || 0)),
+        ]],
+    theme: "grid",
+    headStyles: {
+      fillColor: [25, 118, 210],
+      halign: "center",
+    },
+    styles: {
+      font: "helvetica",
+      fontSize: 8,
+      cellPadding: 3,
+      overflow: "linebreak",
+    },
+    columnStyles: {
+      0: { cellWidth: 10, halign: "center" },
+      1: { cellWidth: 36 },
+      2: { cellWidth: 25 },
+      3: { cellWidth: "auto" },
+      4: { cellWidth: 30, halign: "right" },
+    },
+  });
 
-  y += 8;
-
-  doc.text(
-    `Pickup Date: ${order.deliveryDate}`,
-    14,
-    y
-  );
+  y = doc.lastAutoTable.finalY + 10;
 
   // ===========================
-  // PAYMENT INFORMATION
+  // PAYMENT SUMMARY
   // ===========================
 
-  y += 16;
+  if (y > pageHeight - 55) {
+    doc.addPage();
+    y = 20;
+  }
 
   doc.setFont("helvetica", "bold");
-  doc.text("Payment Information", 14, y);
-
-  doc.setFont("helvetica", "normal");
-
-  y += 8;
-
-  doc.text(
-    `Total Amount: ${formatCurrency(order.total)}`,
-    14,
-    y
-  );
+  doc.setFontSize(12);
+  doc.text("Payment Summary", margin, y);
 
   y += 8;
-
-  doc.text(
-    `Amount Paid: ${formatCurrency(
-      order.amountPaid
-    )}`,
-    14,
-    y
-  );
-
-  y += 8;
-
-  doc.text(
-    `Balance: ${formatCurrency(
-      order.balance
-    )}`,
-    14,
-    y
-  );
-
-  y += 8;
-
-  doc.text(
-    `Change: ${formatCurrency(
-      order.change
-    )}`,
-    14,
-    y
-  );
-
-  y += 8;
-
-  doc.text(
-    `Payment Status: ${order.paymentStatus}`,
-    14,
-    y
-  );
-
-  y += 8;
-
-  doc.text(
-    `Payment Method: ${
-      payment?.method || "N/A"
-    }`,
-    14,
-    y
-  );
-
-  y += 8;
-
-  doc.text(
-    `Transaction Code: ${
-      payment?.transactionCode || "N/A"
-    }`,
-    14,
-    y
-  );
-
-  y += 8;
-
-  doc.text(
-    `Payment Date: ${
-      payment?.date
-        ? formatDateTime(payment.date)
-        : "N/A"
-    }`,
-    14,
-    y
-  );
-
-  // ===========================
-  // TERMS & CONDITIONS
-  // ===========================
-
-  y += 18;
-
-  doc.setFont("helvetica", "bold");
-  doc.text("Terms & Conditions", 14, y);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
 
+  doc.text(`Total Order Cost: ${formatCurrency(orderTotal)}`, margin, y);
+
+  y += 7;
+
+  doc.setTextColor(0, 128, 0);
+  doc.text(`Total Paid: ${formatCurrency(totalPaid)}`, margin, y);
+
+  y += 7;
+
+  doc.setTextColor(balance > 0 ? 200 : 0, balance > 0 ? 0 : 128, 0);
+  doc.text(`Outstanding Balance: ${formatCurrency(balance)}`, margin, y);
+
+  y += 7;
+
+  doc.setTextColor(0);
+  doc.text(
+    `Payment Status: ${
+      order.paymentStatus ||
+      (balance <= 0 ? "Paid" : totalPaid > 0 ? "Partial" : "Unpaid")
+    }`,
+    margin,
+    y
+  );
+
+  // ===========================
+  // TERMS AND SIGNATURES
+  // ===========================
+
+  y += 12;
+
+  if (y > pageHeight - 55) {
+    doc.addPage();
+    y = 20;
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("Terms & Conditions", margin, y);
+
+  y += 6;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+
+  const terms = [
+    "Present this receipt when collecting garments.",
+    "Customers should inspect garments before leaving.",
+    "Items not collected within 30 days may attract storage charges.",
+    "FreshFold is not responsible for damage caused by incorrect care labels.",
+  ];
+
+  terms.forEach((term) => {
+    const lines = doc.splitTextToSize(term, pageWidth - margin * 2 - 4);
+
+    if (y + lines.length * 4 > pageHeight - 15) {
+      doc.addPage();
+      y = 20;
+    }
+
+    doc.text(`- ${lines[0]}`, margin + 2, y);
+
+    if (lines.length > 1) {
+      doc.text(lines.slice(1), margin + 6, y + 4);
+      y += (lines.length - 1) * 4;
+    }
+
+    y += 5;
+  });
+
   y += 8;
 
-  doc.text(
-    "• Present this receipt when collecting garments.",
-    18,
-    y
-  );
+  if (y > pageHeight - 28) {
+    doc.addPage();
+    y = 20;
+  }
 
-  y += 6;
+  doc.setDrawColor(120);
+  doc.line(margin, y, 85, y);
+  doc.line(120, y, pageWidth - margin, y);
 
-  doc.text(
-    "• Customers should inspect garments before leaving.",
-    18,
-    y
-  );
+  y += 5;
 
-  y += 6;
+  doc.setFontSize(8);
+  doc.text("Customer Signature", margin, y);
+  doc.text("Attended By", 120, y);
 
-  doc.text(
-    "• Items not collected within 30 days may attract storage charges.",
-    18,
-    y
-  );
-
-  y += 6;
+  y += 5;
 
   doc.text(
-    "• FreshFold is not liable for damage caused by incorrect care labels.",
-    18,
+    String(staffName || "Staff name unavailable"),
+    120,
     y
   );
 
   // ===========================
-  // SIGNATURES
+  // PAGE FOOTERS
   // ===========================
 
-  y += 22;
+  const pageCount = doc.getNumberOfPages();
 
-  doc.line(20, y, 80, y);
-  doc.line(130, y, 190, y);
+  for (let page = 1; page <= pageCount; page += 1) {
+    doc.setPage(page);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(100);
 
-  y += 6;
+    doc.text(
+      "Thank you for choosing FreshFold Laundry.",
+      pageWidth / 2,
+      pageHeight - 10,
+      { align: "center" }
+    );
 
-  doc.text("Customer Signature", 25, y);
-  doc.text("Cashier Signature", 135, y);
-
-  // ===========================
-  // FOOTER
-  // ===========================
-
-  y += 20;
-
-  doc.setFontSize(11);
-  doc.setTextColor(90);
-
-  doc.text(
-    "Thank you for choosing FreshFold Laundry.",
-    105,
-    y,
-    {
-      align: "center",
-    }
-  );
-
-  y += 6;
-
-  doc.text(
-    "Building trust, one clean garment at a time.",
-    105,
-    y,
-    {
-      align: "center",
-    }
-  );
-
-  y += 6;
-
-  doc.text(
-    "Please retain this receipt for garment collection.",
-    105,
-    y,
-    {
-      align: "center",
-    }
-  );
+    doc.text(
+      `Page ${page} of ${pageCount}`,
+      pageWidth - margin,
+      pageHeight - 5,
+      { align: "right" }
+    );
+  }
 
   doc.save(`${receiptNumber}.pdf`);
 };

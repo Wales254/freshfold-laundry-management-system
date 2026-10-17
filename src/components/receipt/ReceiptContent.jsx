@@ -1,3 +1,4 @@
+
 import {
   Box,
   Divider,
@@ -9,6 +10,8 @@ import {
   TableRow,
   TableCell,
   TableBody,
+  TableContainer,
+  Paper,
 } from "@mui/material";
 
 import { QRCodeSVG } from "qrcode.react";
@@ -21,15 +24,48 @@ import {
 
 import "./Receipt.css";
 
-function ReceiptContent({
-  order,
-  payment,
-}) {
+const formatReceiptDate = (value) => {
+  if (!value) return "N/A";
+
+  try {
+    return formatDateTime(value);
+  } catch {
+    return String(value);
+  }
+};
+
+function ReceiptContent({ order, payments = [], staffName }) {
   if (!order) return null;
 
   const receiptNumber =
-    order.receiptNo ||
-    generateReceiptNumber(order.id);
+    order.receiptNo || generateReceiptNumber(order.id);
+
+  const allPayments = Array.isArray(payments) ? payments : [];
+
+  const totalPaid = allPayments.length
+    ? allPayments.reduce(
+        (sum, item) => sum + Number(item.amount || 0),
+        0
+      )
+    : Number(order.amountPaid || 0);
+
+  const orderTotal = Number(order.total || 0);
+  const balance = Math.max(
+    0,
+    Number(
+      order.balance ?? orderTotal - totalPaid
+    )
+  );
+
+  const services =
+    Array.isArray(order.services) && order.services.length
+      ? order.services
+      : [order];
+
+  const latestPayment =
+    allPayments.length > 0
+      ? allPayments[allPayments.length - 1]
+      : null;
 
   return (
     <Box
@@ -37,344 +73,366 @@ function ReceiptContent({
       sx={{
         width: "100%",
         maxWidth: 800,
-        bgcolor: "background.paper",
-        color: "text.primary",
-        p: 4,
-        fontFamily: "Roboto, sans-serif",
+        bgcolor: "#fff",
+        color: "#222",
+        p: { xs: 2, sm: 4 },
+        fontFamily: "Roboto, Arial, sans-serif",
         mx: "auto",
+        boxSizing: "border-box",
+        "& .receipt-label": {
+          color: "#666",
+          fontSize: "0.8rem",
+          mb: 0.3,
+        },
+        "& .receipt-value": {
+          fontWeight: 600,
+          overflowWrap: "anywhere",
+        },
       }}
     >
-      {/* ================= HEADER ================= */}
-
-      <Box
-        className="receipt-header"
-        textAlign="center"
-        mb={2}
-      >
+      {/* BUSINESS HEADER */}
+      <Box textAlign="center" mb={3}>
         <Typography
           variant="h4"
-          fontWeight="bold"
-          className="receipt-title"
+          fontWeight={800}
+          sx={{ color: "#1976d2", mb: 0.5 }}
         >
           FreshFold Laundry
         </Typography>
 
-        <Typography>
-          Professional Laundry & Dry Cleaning Services
+        <Typography variant="body2">
+          Professional Laundry &amp; Dry Cleaning Services
         </Typography>
 
-        <Typography className="receipt-subtitle">
+        <Typography variant="body2" color="text.secondary">
           Nairobi, Kenya
         </Typography>
 
-        <Typography className="receipt-subtitle">
+        <Typography variant="body2" color="text.secondary">
           Tel: +254 700 000 000
         </Typography>
 
-        <Typography className="receipt-subtitle">
+        <Typography variant="body2" color="text.secondary">
           Email: info@freshfold.co.ke
+        </Typography>
+
+        <Typography
+          variant="h6"
+          fontWeight={700}
+          sx={{ mt: 2, letterSpacing: 1 }}
+        >
+          PAYMENT RECEIPT
         </Typography>
       </Box>
 
-      <Divider sx={{ mb: 3 }} />
+      <Divider sx={{ mb: 2 }} />
 
-      {/* ================= RECEIPT DETAILS ================= */}
-
-      <Typography
-        fontWeight="bold"
-        gutterBottom
-      >
+      {/* RECEIPT AND ORDER INFORMATION */}
+      <Typography fontWeight={700} gutterBottom>
         Receipt Information
       </Typography>
 
       <Grid container spacing={2}>
-        <Grid item xs={6}>
-          <Typography>
-            <strong>Receipt No:</strong>{" "}
+        <Grid item xs={12} sm={6}>
+          <Typography className="receipt-label">
+            Receipt Number
+          </Typography>
+          <Typography className="receipt-value">
             {receiptNumber}
           </Typography>
 
-          <Typography>
-            <strong>Order No:</strong> #{order.id}
+          <Typography className="receipt-label" sx={{ mt: 1 }}>
+            Order Number
+          </Typography>
+          <Typography className="receipt-value">
+            #{order.id}
           </Typography>
 
-          <Typography>
-            <strong>Date:</strong>{" "}
-            {formatDateTime(
-              payment?.date || new Date()
-            )}
+          <Typography className="receipt-label" sx={{ mt: 1 }}>
+            Order Status
+          </Typography>
+          <Typography className="receipt-value">
+            {order.status || "N/A"}
           </Typography>
         </Grid>
 
-        <Grid item xs={6}>
-          <Typography>
-            <strong>Status:</strong>{" "}
-            {order.status}
+        <Grid item xs={12} sm={6}>
+          <Typography className="receipt-label">
+            Receipt Date
+          </Typography>
+          <Typography className="receipt-value">
+            {formatReceiptDate(
+              latestPayment?.date ||
+                latestPayment?.createdAt ||
+                new Date()
+            )}
           </Typography>
 
-          <Typography>
-            <strong>Delivery Date:</strong>{" "}
-            {order.deliveryDate}
+          <Typography className="receipt-label" sx={{ mt: 1 }}>
+            Delivery Date
+          </Typography>
+          <Typography className="receipt-value">
+            {order.deliveryDate || "N/A"}
           </Typography>
 
-          <Typography>
-            <strong>Attendant:</strong>{" "}
-            {order.attendant || "Front Desk"}
+          <Typography className="receipt-label" sx={{ mt: 1 }}>
+            Attended By
+          </Typography>
+          <Typography className="receipt-value">
+            {staffName || "Staff name unavailable"}
           </Typography>
         </Grid>
       </Grid>
 
       <Divider sx={{ my: 3 }} />
 
-      {/* ================= CUSTOMER ================= */}
-
-      <Typography
-        variant="h6"
-        fontWeight="bold"
-        gutterBottom
-      >
+      {/* CUSTOMER INFORMATION */}
+      <Typography variant="h6" fontWeight={700} gutterBottom>
         Customer Information
       </Typography>
 
-      <Stack spacing={1}>
-        <Typography>
-          <strong>Name:</strong>{" "}
-          {order.customer}
-        </Typography>
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6}>
+          <Typography className="receipt-label">
+            Customer Name
+          </Typography>
+          <Typography className="receipt-value">
+            {order.customer || "N/A"}
+          </Typography>
+        </Grid>
 
-        <Typography>
-          <strong>Phone:</strong>{" "}
-          {order.phone}
-        </Typography>
-      </Stack>
+        <Grid item xs={12} sm={6}>
+          <Typography className="receipt-label">
+            Phone Number
+          </Typography>
+          <Typography className="receipt-value">
+            {order.phone || "N/A"}
+          </Typography>
+        </Grid>
+      </Grid>
 
       <Divider sx={{ my: 3 }} />
 
-      {/* ================= ORDER ================= */}
-
-      <Typography
-        variant="h6"
-        fontWeight="bold"
-        gutterBottom
-      >
+      {/* ORDER DETAILS */}
+      <Typography variant="h6" fontWeight={700} gutterBottom>
         Order Details
       </Typography>
 
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>
-              <strong>Service</strong>
-            </TableCell>
+      <TableContainer component={Paper} variant="outlined">
+        <Table size="small" aria-label="Order services">
+          <TableHead>
+            <TableRow sx={{ bgcolor: "#f2f5f9" }}>
+              <TableCell><strong>Service</strong></TableCell>
+              <TableCell align="center"><strong>Qty</strong></TableCell>
+              <TableCell align="right"><strong>Unit Price</strong></TableCell>
+              <TableCell align="right"><strong>Total</strong></TableCell>
+            </TableRow>
+          </TableHead>
 
-            <TableCell align="center">
-              <strong>Qty</strong>
-            </TableCell>
-
-            <TableCell align="right">
-              <strong>Unit Price</strong>
-            </TableCell>
-
-            <TableCell align="right">
-              <strong>Total</strong>
-            </TableCell>
-          </TableRow>
-        </TableHead>
-
-        <TableBody>
-          {(order.services || [order]).map(
-            (item, index) => {
+          <TableBody>
+            {services.map((item, index) => {
+              const quantity = Number(item.quantity || 0);
+              const itemTotal = Number(item.total || 0);
               const unitPrice =
-                item.quantity > 0
-                  ? item.total / item.quantity
-                  : item.total;
+                quantity > 0 ? itemTotal / quantity : itemTotal;
 
               return (
-                <TableRow key={index}>
-                  <TableCell>
-                    {item.service}
-                  </TableCell>
-
+                <TableRow key={item.id || index}>
+                  <TableCell>{item.service || "Service"}</TableCell>
                   <TableCell align="center">
-                    {item.quantity}
+                    {quantity || "—"}
                   </TableCell>
-
                   <TableCell align="right">
                     {formatCurrency(unitPrice)}
                   </TableCell>
-
                   <TableCell align="right">
-                    {formatCurrency(item.total)}
+                    {formatCurrency(itemTotal)}
                   </TableCell>
                 </TableRow>
               );
-            }
-          )}
-        </TableBody>
-      </Table>
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
       <Divider sx={{ my: 3 }} />
 
-      {/* ================= PAYMENT ================= */}
-
-      <Typography
-        variant="h6"
-        fontWeight="bold"
-        gutterBottom
-      >
-        Payment Information
+      {/* INSTALLMENT HISTORY */}
+      <Typography variant="h6" fontWeight={700} gutterBottom>
+        Payment History
       </Typography>
 
-      <Stack spacing={1}>
-        <Typography>
-          <strong>Total Amount:</strong>{" "}
-          {formatCurrency(order.total)}
-        </Typography>
+      <Typography variant="body2" color="text.secondary" mb={1.5}>
+        Each row represents an individual payment recorded for this order.
+      </Typography>
 
-        <Typography color="primary.main">
-          <strong>Amount Paid:</strong>{" "}
-          {formatCurrency(order.amountPaid)}
-        </Typography>
+      <TableContainer component={Paper} variant="outlined">
+        <Table size="small" aria-label="Installment payment history">
+          <TableHead>
+            <TableRow sx={{ bgcolor: "#f2f5f9" }}>
+              <TableCell><strong>#</strong></TableCell>
+              <TableCell><strong>Date</strong></TableCell>
+              <TableCell><strong>Method</strong></TableCell>
+              <TableCell><strong>Transaction Code</strong></TableCell>
+              <TableCell align="right"><strong>Amount</strong></TableCell>
+            </TableRow>
+          </TableHead>
 
-        <Typography
-          color={
-            order.balance === 0
-              ? "success.main"
-              : "error.main"
-          }
-        >
-          <strong>Balance:</strong>{" "}
-          {formatCurrency(order.balance)}
-        </Typography>
+          <TableBody>
+            {allPayments.length > 0 ? (
+              allPayments.map((item, index) => (
+                <TableRow key={item.id || index}>
+                  <TableCell>{index + 1}</TableCell>
+                  <TableCell>
+                    {formatReceiptDate(
+                      item.date || item.createdAt
+                    )}
+                  </TableCell>
+                  <TableCell>{item.method || "N/A"}</TableCell>
+                  <TableCell sx={{ overflowWrap: "anywhere" }}>
+                    {item.method &&
+                    item.method.toLowerCase() !== "cash"
+                      ? item.transactionCode ||
+                        item.transactionReference ||
+                        item.transaction_reference ||
+                        "Not recorded"
+                      : "—"}
+                  </TableCell>
+                  <TableCell align="right">
+                    {formatCurrency(Number(item.amount || 0))}
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  No individual payment records are available for this order.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-        <Typography color="info.main">
-          <strong>Change:</strong>{" "}
-          {formatCurrency(order.change)}
-        </Typography>
+      {/* PAYMENT SUMMARY */}
+      <Box
+        sx={{
+          mt: 2,
+          ml: "auto",
+          maxWidth: 360,
+          p: 2,
+          border: "1px solid #ddd",
+          borderRadius: 1,
+        }}
+      >
+        <Stack spacing={1}>
+          <Stack direction="row" justifyContent="space-between" gap={2}>
+            <Typography>Total Order Cost</Typography>
+            <Typography fontWeight={600}>
+              {formatCurrency(orderTotal)}
+            </Typography>
+          </Stack>
 
-        <Typography
-          color={
-            order.paymentStatus === "Paid"
-              ? "success.main"
-              : order.paymentStatus ===
-                "Partial"
-              ? "warning.main"
-              : "error.main"
-          }
-        >
-          <strong>Payment Status:</strong>{" "}
-          {order.paymentStatus}
-        </Typography>
+          <Stack direction="row" justifyContent="space-between" gap={2}>
+            <Typography>Total Paid</Typography>
+            <Typography fontWeight={700} color="success.main">
+              {formatCurrency(totalPaid)}
+            </Typography>
+          </Stack>
 
-        <Typography>
-          <strong>Payment Method:</strong>{" "}
-          {payment?.method || "N/A"}
-        </Typography>
+          <Stack direction="row" justifyContent="space-between" gap={2}>
+            <Typography>Outstanding Balance</Typography>
+            <Typography
+              fontWeight={700}
+              color={balance > 0 ? "error.main" : "success.main"}
+            >
+              {formatCurrency(balance)}
+            </Typography>
+          </Stack>
 
-        <Typography>
-          <strong>Transaction Code:</strong>{" "}
-          {payment?.transactionCode || "N/A"}
-        </Typography>
+          <Divider />
 
-        <Typography>
-          <strong>Payment Date:</strong>{" "}
-          {payment?.date || "N/A"}
-        </Typography>
-      </Stack>
+          <Stack direction="row" justifyContent="space-between" gap={2}>
+            <Typography fontWeight={700}>Payment Status</Typography>
+            <Typography fontWeight={700}>
+              {order.paymentStatus ||
+                (balance <= 0 ? "Paid" : totalPaid > 0 ? "Partial" : "Unpaid")}
+            </Typography>
+          </Stack>
+        </Stack>
+      </Box>
 
       <Divider sx={{ my: 3 }} />
 
-      {/* ================= QR ================= */}
-
+      {/* QR CODE */}
       <Box textAlign="center">
         <QRCodeSVG
-          size={120}
-          value={`https://freshfold.co.ke/verify?receipt=${receiptNumber}&order=${order.id}`}
+          size={110}
+          value={`https://freshfold.co.ke/verify?receipt=${encodeURIComponent(
+            receiptNumber
+          )}&order=${encodeURIComponent(order.id)}`}
         />
 
-        <Typography
-          variant="caption"
-          display="block"
-          mt={1}
-        >
+        <Typography variant="caption" display="block" mt={1}>
           Scan to verify receipt
         </Typography>
       </Box>
 
       <Divider sx={{ my: 3 }} />
 
-      {/* ================= TERMS ================= */}
-
-      <Typography
-        variant="subtitle1"
-        fontWeight="bold"
-      >
-        Terms & Conditions
+      {/* TERMS */}
+      <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+        Terms &amp; Conditions
       </Typography>
 
-      <Typography variant="body2">
-        • Please present this receipt when
-        collecting your garments.
-      </Typography>
-
-      <Typography variant="body2">
-        • Customers should inspect garments
-        before leaving.
-      </Typography>
-
-      <Typography variant="body2">
-        • Items not collected within 30 days
-        may attract storage charges.
-      </Typography>
-
-      <Typography variant="body2">
-        • FreshFold is not responsible for
-        damage caused by incorrect care labels.
-      </Typography>
+      <Stack spacing={0.75}>
+        <Typography variant="body2">
+          • Please present this receipt when collecting your garments.
+        </Typography>
+        <Typography variant="body2">
+          • Customers should inspect garments before leaving.
+        </Typography>
+        <Typography variant="body2">
+          • Items not collected within 30 days may attract storage charges.
+        </Typography>
+        <Typography variant="body2">
+          • FreshFold is not responsible for damage caused by incorrect care labels.
+        </Typography>
+      </Stack>
 
       <Divider sx={{ my: 3 }} />
 
-      {/* ================= SIGNATURES ================= */}
-
+      {/* SIGNATURES */}
       <Grid container spacing={4}>
-        <Grid item xs={6}>
-          <Typography>
-            __________________________
-          </Typography>
-
-          <Typography>
-            Customer Signature
-          </Typography>
+        <Grid item xs={12} sm={6}>
+          <Box sx={{ mt: 4, borderTop: "1px solid #777", pt: 1 }}>
+            <Typography variant="body2">
+              Customer Signature
+            </Typography>
+          </Box>
         </Grid>
 
-        <Grid item xs={6} textAlign="right">
-          <Typography>
-            __________________________
-          </Typography>
-
-          <Typography>
-            Cashier Signature
-          </Typography>
+        <Grid item xs={12} sm={6}>
+          <Box sx={{ mt: 4, borderTop: "1px solid #777", pt: 1 }}>
+            <Typography variant="body2">
+              Attended By: {staffName || "Staff name unavailable"}
+            </Typography>
+          </Box>
         </Grid>
       </Grid>
 
+      {/* FOOTER */}
       <Box textAlign="center" mt={4}>
-        <Typography fontWeight="bold">
-          Thank you for choosing FreshFold
-          Laundry
+        <Typography fontWeight={700}>
+          Thank you for choosing FreshFold Laundry
         </Typography>
 
-        <Typography color="primary">
-          Building trust, one clean garment at
-          a time.
+        <Typography color="primary.main">
+          Building trust, one clean garment at a time.
         </Typography>
 
-        <Typography
-          variant="body2"
-          mt={1}
-        >
-          Please retain this receipt for
-          garment collection.
+        <Typography variant="body2" mt={1}>
+          Please retain this receipt for garment collection.
         </Typography>
       </Box>
     </Box>
