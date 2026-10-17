@@ -19,6 +19,10 @@ import {
   Chip,
 } from "@mui/material";
 
+const API_URL = (
+  import.meta.env.VITE_API_URL || "http://localhost:5000"
+).replace(/\/+$/, "");
+
 function PaymentDialog({ open, handleClose, order }) {
   const dispatch = useDispatch();
 
@@ -73,7 +77,7 @@ function PaymentDialog({ open, handleClose, order }) {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/orders/${order.id}/payments`,
+        `${API_URL}/api/orders/${order.id}/payments`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -150,7 +154,9 @@ function PaymentDialog({ open, handleClose, order }) {
           </Grid>
 
           <Grid size={{ xs: 6 }}>
-            <Typography variant="body2">Remaining After This Payment</Typography>
+            <Typography variant="body2">
+              Remaining After This Payment
+            </Typography>
             <Typography color="error.main" fontWeight="bold">
               KES {balance.toLocaleString()}
             </Typography>
