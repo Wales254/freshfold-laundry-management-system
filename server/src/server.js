@@ -5,6 +5,8 @@ const cors = require("cors");
 const pool = require("./db");
 const ordersRouter = require("./routes/orders");
 const customersRouter = require("./routes/customers");
+const authRouter = require("./routes/auth");
+const usersRouter = require("./routes/users");
 
 const app = express();
 
@@ -36,7 +38,8 @@ app.get("/api/health", async (req, res) => {
 
 app.use("/api/orders", ordersRouter);
 app.use("/api/customers", customersRouter);
-
+app.use("/api/auth", authRouter);
+app.use("/api/users", usersRouter);
 
 const PORT = process.env.PORT || 5000;
 

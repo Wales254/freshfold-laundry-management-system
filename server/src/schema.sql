@@ -68,3 +68,56 @@ CREATE INDEX IF NOT EXISTS idx_order_items_order_id
 
 CREATE INDEX IF NOT EXISTS idx_payments_order_id
     ON payments(order_id);
+
+
+-- ==========================================
+-- FRESHFOLD AUTHENTICATION AND ACCOUNT CONTROL
+-- ==========================================
+
+-- Give every employee a username.
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS username VARCHAR(50);
+
+-- Allow administrators to deactivate accounts.
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- Track login and account update activity.
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
+
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- Ensure usernames are unique, ignoring capitalization.
+-- Multiple existing NULL usernames are allowed during migration.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique
+ON users (LOWER(username))
+WHERE username IS NOT NULL;
+
+-- Record important actions performed by employees.
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id BIGSERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    username VARCHAR(50),
+    action VARCHAR(100) NOT NULL,
+    entity_type VARCHAR(50),
+    entity_id INTEGER,
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id
+ON audit_logs(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at
+ON audit_logs(created_at);
+
+
+-- Employee contact information
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS phone VARCHAR(30);
+
+-- Ensure employee listings can be sorted efficiently.
+CREATE INDEX IF NOT EXISTS idx_users_created_at
+ON users(created_at);

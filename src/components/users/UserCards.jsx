@@ -1,58 +1,32 @@
+
 import { Grid, Paper, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 
 function UserCards() {
-  const users = useSelector(
-    (state) => state.users.users
-  );
+  const users = useSelector((state) => state.users.users);
+
+  const getRoleCount = (role) =>
+    users.filter(
+      (user) => String(user.role || "").toLowerCase() === role
+    ).length;
 
   const totalUsers = users.length;
-
-  const admins = users.filter(
-    (user) => user.role === "Admin"
-  ).length;
-
-  const managers = users.filter(
-    (user) => user.role === "Manager"
-  ).length;
-
-  const cashiers = users.filter(
-    (user) => user.role === "Cashier"
-  ).length;
-
-  const attendants = users.filter(
-    (user) => user.role === "Attendant"
-  ).length;
+  const admins = getRoleCount("admin");
+  const managers = getRoleCount("manager");
+  const cashiers = getRoleCount("cashier");
+  const attendants = getRoleCount("attendant");
 
   const activeUsers = users.filter(
     (user) => user.status === "Active"
   ).length;
 
   const cards = [
-    {
-      title: "Total Users",
-      value: totalUsers,
-    },
-    {
-      title: "Admins",
-      value: admins,
-    },
-    {
-      title: "Managers",
-      value: managers,
-    },
-    {
-      title: "Cashiers",
-      value: cashiers,
-    },
-    {
-      title: "Attendants",
-      value: attendants,
-    },
-    {
-      title: "Active Users",
-      value: activeUsers,
-    },
+    { title: "Total Users", value: totalUsers },
+    { title: "Admins", value: admins },
+    { title: "Managers", value: managers },
+    { title: "Cashiers", value: cashiers },
+    { title: "Attendants", value: attendants },
+    { title: "Active Users", value: activeUsers },
   ];
 
   return (
@@ -70,10 +44,7 @@ function UserCards() {
               textAlign: "center",
             }}
           >
-            <Typography
-              variant="body2"
-              color="text.secondary"
-            >
+            <Typography variant="body2" color="text.secondary">
               {card.title}
             </Typography>
 

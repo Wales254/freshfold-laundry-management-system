@@ -1,104 +1,72 @@
+
 import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
-  users: [
-    {
-      id: 1,
-      name: "Administrator",
-      email: "admin@freshfold.com",
-      phone: "0712345678",
-      role: "Admin",
-      status: "Active",
-      password: "123456",
-    },
-    {
-      id: 2,
-      name: "Mary Wanjiku",
-      email: "manager@freshfold.com",
-      phone: "0700111222",
-      role: "Manager",
-      status: "Active",
-      password: "123456",
-    },
-    {
-      id: 3,
-      name: "Kevin Otieno",
-      email: "cashier@freshfold.com",
-      phone: "0799887766",
-      role: "Cashier",
-      status: "Active",
-      password: "123456",
-    },
-    {
-      id: 4,
-      name: "Brian Kiptoo",
-      email: "attendant@freshfold.com",
-      phone: "0722334455",
-      role: "Attendant",
-      status: "Active",
-      password: "123456",
-    },
-  ],
+  users: [],
+  loading: false,
+  error: null,
 };
 
 const userSlice = createSlice({
   name: "users",
   initialState,
-
   reducers: {
+    setUsers: (state, action) => {
+      state.users = action.payload;
+      state.error = null;
+    },
+
     addUser: (state, action) => {
       state.users.push(action.payload);
     },
 
     updateUser: (state, action) => {
-      const updatedUser = action.payload;
-
       const index = state.users.findIndex(
-        (user) => user.id === updatedUser.id
+        (user) => user.id === action.payload.id
       );
 
       if (index !== -1) {
-        state.users[index] = updatedUser;
+        state.users[index] = {
+          ...state.users[index],
+          ...action.payload,
+        };
       }
     },
 
     deleteUser: (state, action) => {
       state.users = state.users.filter(
-        (user) => user.id !== action.payload
+        (user) => String(user.id) !== String(action.payload)
       );
     },
 
-    toggleUserStatus: (state, action) => {
+    setUserStatus: (state, action) => {
       const user = state.users.find(
-        (user) => user.id === action.payload
+        (item) => String(item.id) === String(action.payload.id)
       );
 
       if (user) {
-        user.status =
-          user.status === "Active"
-            ? "Suspended"
-            : "Active";
+        user.status = action.payload.status;
       }
     },
 
-    resetPassword: (state, action) => {
-      const user = state.users.find(
-        (user) => user.id === action.payload
-      );
+    setUsersLoading: (state, action) => {
+      state.loading = action.payload;
+    },
 
-      if (user) {
-        user.password = "123456";
-      }
+    setUsersError: (state, action) => {
+      state.error = action.payload;
     },
   },
 });
 
 export const {
+  setUsers,
   addUser,
   updateUser,
   deleteUser,
-  toggleUserStatus,
-  resetPassword,
+  setUserStatus,
+  setUsersLoading,
+  setUsersError,
 } = userSlice.actions;
 
 export default userSlice.reducer;

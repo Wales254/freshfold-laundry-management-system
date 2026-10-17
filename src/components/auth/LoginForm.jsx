@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -26,6 +27,13 @@ import {
   VisibilityOff,
 } from "@mui/icons-material";
 
+// Backend API URL.
+// Local development defaults to port 5000.
+// Set VITE_API_URL to your deployed backend URL for production.
+const API_BASE_URL = (
+  import.meta.env.VITE_API_URL || "http://localhost:5000"
+).replace(/\/$/, "");
+
 function LoginForm() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -34,109 +42,110 @@ function LoginForm() {
     (state) => state.auth
   );
 
-  const users = useSelector(
-    (state) => state.users.users
-  );
-
-  const [showPassword, setShowPassword] =
-    useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [form, setForm] = useState({
-    email: "",
+    username: "",
     password: "",
-    remember: false,
+    remember: true,
   });
 
-  const handleChange = (e) => {
-    const {
-      name,
-      value,
-      checked,
-      type,
-    } = e.target;
+  const handleChange = (event) => {
+    const { name, value, checked, type } = event.target;
 
-    setForm({
-      ...form,
-      [name]:
-        type === "checkbox"
-          ? checked
-          : value,
-    });
+    setForm((previous) => ({
+      ...previous,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   };
 
-  const handleLogin = () => {
+  const handleLogin = async (event) => {
+    event.preventDefault();
+
+    if (!form.username.trim() || !form.password) {
+      dispatch(
+        loginFailure("Enter your username and password.")
+      );
+      return;
+    }
+
     dispatch(loginStart());
 
-    const user = users.find(
-      (u) =>
-        u.email.toLowerCase() ===
-          form.email.toLowerCase() &&
-        u.password === form.password
-    );
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/auth/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            username: form.username.trim(),
+            password: form.password,
+          }),
+        }
+      );
 
-    if (!user) {
+      const data = await response.json();
+
+      if (!response.ok) {
+        dispatch(
+          loginFailure(
+            data.message || "Login failed. Please try again."
+          )
+        );
+        return;
+      }
+
+      if (!data.token || !data.user) {
+        dispatch(
+          loginFailure(
+            "The server returned an invalid login response."
+          )
+        );
+        return;
+      }
+
+      // Save the authenticated user and token through Redux.
+      // authSlice handles session storage.
+      dispatch(
+        loginSuccess({
+          token: data.token,
+          user: data.user,
+        })
+      );
+
+      navigate("/", { replace: true });
+    } catch (error) {
+      console.error("Login request failed:", error);
+
       dispatch(
         loginFailure(
-          "Invalid email or password."
+          "Unable to connect to the server. Check your backend URL and connection."
         )
       );
-      return;
     }
-
-    if (user.status !== "Active") {
-      dispatch(
-        loginFailure(
-          "Your account has been suspended. Please contact the administrator."
-        )
-      );
-      return;
-    }
-
-    const userData = {
-      token: "demo-token",
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        status: user.status,
-      },
-    };
-
-    dispatch(loginSuccess(userData));
-
-    localStorage.setItem(
-      "auth",
-      JSON.stringify(userData)
-    );
-
-    navigate("/");
   };
 
   return (
-    <Box>
-      <Typography
-        variant="h4"
-        fontWeight="bold"
-      >
+    <Box component="form" onSubmit={handleLogin}>
+      <Typography variant="h4" fontWeight="bold">
         Sign In
       </Typography>
 
-      <Typography
-        color="text.secondary"
-        sx={{ mb: 4 }}
-      >
-        Enter your account credentials.
+      <Typography color="text.secondary" sx={{ mb: 4 }}>
+        Enter your employee account credentials.
       </Typography>
 
       <TextField
         fullWidth
         margin="normal"
-        label="Email"
-        name="email"
-        value={form.email}
+        label="Username"
+        name="username"
+        autoComplete="username"
+        value={form.username}
         onChange={handleChange}
+        required
       />
 
       <TextField
@@ -144,28 +153,25 @@ function LoginForm() {
         margin="normal"
         label="Password"
         name="password"
-        type={
-          showPassword
-            ? "text"
-            : "password"
-        }
+        type={showPassword ? "text" : "password"}
+        autoComplete="current-password"
         value={form.password}
         onChange={handleChange}
+        required
         InputProps={{
           endAdornment: (
             <InputAdornment position="end">
               <IconButton
-                onClick={() =>
-                  setShowPassword(
-                    !showPassword
-                  )
+                type="button"
+                aria-label={
+                  showPassword ? "Hide password" : "Show password"
                 }
+                onClick={() =>
+                  setShowPassword((previous) => !previous)
+                }
+                edge="end"
               >
-                {showPassword ? (
-                  <VisibilityOff />
-                ) : (
-                  <Visibility />
-                )}
+                {showPassword ? <VisibilityOff /> : <Visibility />}
               </IconButton>
             </InputAdornment>
           ),
@@ -189,25 +195,20 @@ function LoginForm() {
           label="Remember Me"
         />
 
-        <Link
-          href="/forgot-password"
-          underline="hover"
-        >
+        <Link href="/forgot-password" underline="hover">
           Forgot Password?
         </Link>
       </Box>
 
       {error && (
-        <Typography
-          color="error"
-          sx={{ mt: 2 }}
-        >
+        <Typography color="error" sx={{ mt: 2 }}>
           {error}
         </Typography>
       )}
 
       <Button
         fullWidth
+        type="submit"
         variant="contained"
         size="large"
         sx={{
@@ -215,14 +216,10 @@ function LoginForm() {
           py: 1.5,
           borderRadius: 2,
         }}
-        onClick={handleLogin}
         disabled={loading}
       >
         {loading ? (
-          <CircularProgress
-            size={24}
-            color="inherit"
-          />
+          <CircularProgress size={24} color="inherit" />
         ) : (
           "Sign In"
         )}

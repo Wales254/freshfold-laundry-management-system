@@ -1,8 +1,7 @@
+
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
-
-import { loginSuccess } from "./redux/authSlice";
 
 import { fetchOrdersFromApi } from "./redux/orderSlice";
 
@@ -26,30 +25,15 @@ import Users from "./pages/Users";
 function App() {
   const dispatch = useDispatch();
 
- useEffect(() => {
-  const auth = localStorage.getItem("auth");
-
-  if (auth) {
-    try {
-      dispatch(loginSuccess(JSON.parse(auth)));
-    } catch (error) {
-      console.error("Failed to restore authentication:", error);
-    }
-  }
-
-  dispatch(fetchOrdersFromApi());
-}, [dispatch]);
+  useEffect(() => {
+    dispatch(fetchOrdersFromApi());
+  }, [dispatch]);
 
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public Route */}
-        <Route
-          path="/login"
-          element={<Login />}
-        />
+        <Route path="/login" element={<Login />} />
 
-        {/* Protected Routes */}
         <Route
           path="/"
           element={
@@ -58,148 +42,101 @@ function App() {
             </ProtectedRoute>
           }
         >
-          {/* Dashboard */}
           <Route
             index
             element={
               <RoleProtectedRoute
-                roles={[
-                  "Admin",
-                  "Manager",
-                  "Cashier",
-                  "Attendant",
-                ]}
+                roles={["admin", "manager", "cashier", "attendant", "staff"]}
               >
                 <Dashboard />
               </RoleProtectedRoute>
             }
           />
 
-          {/* Orders */}
           <Route
             path="orders"
             element={
               <RoleProtectedRoute
-                roles={[
-                  "Admin",
-                  "Manager",
-                  "Cashier",
-                  "Attendant",
-                ]}
+                roles={["admin", "manager", "cashier", "attendant"]}
               >
                 <Orders />
               </RoleProtectedRoute>
             }
           />
 
-          {/* Customers */}
           <Route
             path="customers"
             element={
               <RoleProtectedRoute
-                roles={[
-                  "Admin",
-                  "Manager",
-                  "Cashier",
-                ]}
+                roles={["admin", "manager", "cashier"]}
               >
                 <Customers />
               </RoleProtectedRoute>
             }
           />
 
-          {/* Inventory */}
           <Route
             path="inventory"
             element={
-              <RoleProtectedRoute
-                roles={[
-                  "Admin",
-                  "Manager",
-                ]}
-              >
+              <RoleProtectedRoute roles={["admin", "manager"]}>
                 <Inventory />
               </RoleProtectedRoute>
             }
           />
 
-          {/* Pricing */}
           <Route
             path="pricing"
             element={
-              <RoleProtectedRoute
-                roles={[
-                  "Admin",
-                  "Manager",
-                ]}
-              >
+              <RoleProtectedRoute roles={["admin", "manager"]}>
                 <Pricing />
               </RoleProtectedRoute>
             }
           />
 
-          {/* Payments */}
           <Route
             path="payments"
             element={
               <RoleProtectedRoute
-                roles={[
-                  "Admin",
-                  "Manager",
-                  "Cashier",
-                ]}
+                roles={["admin", "manager", "cashier"]}
               >
                 <Payments />
               </RoleProtectedRoute>
             }
           />
 
-          {/* Receipts */}
           <Route
             path="receipts"
             element={
               <RoleProtectedRoute
-                roles={[
-                  "Admin",
-                  "Manager",
-                  "Cashier",
-                ]}
+                roles={["admin", "manager", "cashier"]}
               >
                 <Receipts />
               </RoleProtectedRoute>
             }
           />
 
-          {/* Reports */}
           <Route
             path="reports"
             element={
-              <RoleProtectedRoute
-                roles={[
-                  "Admin",
-                  "Manager",
-                ]}
-              >
+              <RoleProtectedRoute roles={["admin", "manager"]}>
                 <Reports />
               </RoleProtectedRoute>
             }
           />
 
-          {/* Users */}
           <Route
             path="users"
             element={
-              <RoleProtectedRoute roles={["Admin"]}>
+              <RoleProtectedRoute roles={["admin"]}>
                 <Users />
               </RoleProtectedRoute>
             }
           />
 
-          {/* Settings */}
           <Route
             path="settings"
             element={
-              <RoleProtectedRoute roles={["Admin"]}>
+              <RoleProtectedRoute roles={["admin"]}>
                 <Settings />
               </RoleProtectedRoute>
             }

@@ -1,10 +1,41 @@
+
 import { createSlice } from "@reduxjs/toolkit";
 
+function loadSavedSession() {
+  try {
+    const saved = localStorage.getItem("auth");
+
+    if (!saved) return null;
+
+    const parsed = JSON.parse(saved);
+
+    if (
+      !parsed ||
+      typeof parsed.token !== "string" ||
+      !parsed.token ||
+      !parsed.user ||
+      typeof parsed.user !== "object" ||
+      !parsed.user.id ||
+      !parsed.user.role
+    ) {
+      localStorage.removeItem("auth");
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    localStorage.removeItem("auth");
+    return null;
+  }
+}
+
+const savedSession = loadSavedSession();
+
 const initialState = {
-  isAuthenticated: false,
+  isAuthenticated: Boolean(savedSession),
   loading: false,
-  user: null,
-  token: null,
+  user: savedSession?.user || null,
+  token: savedSession?.token || null,
   error: null,
 };
 
@@ -13,26 +44,18 @@ const authSlice = createSlice({
   initialState,
 
   reducers: {
-    // ==========================
-    // Login Start
-    // ==========================
     loginStart: (state) => {
       state.loading = true;
       state.error = null;
     },
 
-    // ==========================
-    // Login Success
-    // ==========================
     loginSuccess: (state, action) => {
       state.loading = false;
       state.isAuthenticated = true;
-
       state.user = action.payload.user;
       state.token = action.payload.token;
       state.error = null;
 
-      // Save login session
       localStorage.setItem(
         "auth",
         JSON.stringify({
@@ -42,20 +65,16 @@ const authSlice = createSlice({
       );
     },
 
-    // ==========================
-    // Login Failed
-    // ==========================
     loginFailure: (state, action) => {
       state.loading = false;
       state.error = action.payload;
       state.isAuthenticated = false;
       state.user = null;
       state.token = null;
+
+      localStorage.removeItem("auth");
     },
 
-    // ==========================
-    // Logout
-    // ==========================
     logout: (state) => {
       state.isAuthenticated = false;
       state.loading = false;
@@ -66,9 +85,6 @@ const authSlice = createSlice({
       localStorage.removeItem("auth");
     },
 
-    // ==========================
-    // Update User Profile
-    // ==========================
     updateProfile: (state, action) => {
       if (state.user) {
         state.user = {
@@ -76,7 +92,6 @@ const authSlice = createSlice({
           ...action.payload,
         };
 
-        // Keep localStorage synchronized
         localStorage.setItem(
           "auth",
           JSON.stringify({
@@ -85,6 +100,10 @@ const authSlice = createSlice({
           })
         );
       }
+    },
+
+    clearAuthError: (state) => {
+      state.error = null;
     },
   },
 });
@@ -95,6 +114,7 @@ export const {
   loginFailure,
   logout,
   updateProfile,
+  clearAuthError,
 } = authSlice.actions;
 
 export default authSlice.reducer;
