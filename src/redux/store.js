@@ -1,3 +1,4 @@
+
 import { configureStore } from "@reduxjs/toolkit";
 
 import orderReducer from "./orderSlice";
@@ -6,6 +7,7 @@ import pricingReducer from "./pricingSlice";
 import authReducer from "./authSlice";
 import userReducer from "./userSlice";
 import paymentReducer from "./paymentSlice";
+import customerReducer from "./customerSlice";
 
 export const store = configureStore({
   reducer: {
@@ -15,5 +17,6 @@ export const store = configureStore({
     auth: authReducer,
     users: userReducer,
     payment: paymentReducer,
+    customers: customerReducer,
   },
 });

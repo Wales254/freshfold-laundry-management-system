@@ -1,7 +1,9 @@
-import { useState } from "react";
+
+import { useState, useMemo } from "react";
 import { useSelector } from "react-redux";
 
 import {
+  Alert,
   Paper,
   Table,
   TableHead,
@@ -17,44 +19,73 @@ import CustomerDetailsDialog from "./CustomerDetailsDialog";
 import LoyaltyBadge from "./LoyaltyBadge";
 
 function CustomerTable({ search = "" }) {
-  const orders = useSelector((state) => state.orders.orders);
+  const customers = useSelector(
+    (state) => state.customers?.customers || []
+  );
+
+  const orders = useSelector(
+    (state) => state.orders?.orders || []
+  );
+
+  const loading = useSelector(
+    (state) => state.customers?.loading || false
+  );
+
+  const error = useSelector(
+    (state) => state.customers?.error || null
+  );
 
   const [open, setOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
-  // Group orders by customer
-  const customers = Object.values(
-    orders.reduce((acc, order) => {
-      const key = order.phone;
+  const customersWithStats = useMemo(() => {
+    return customers.map((customer) => {
+      const customerOrders = orders.filter((order) => {
+        if (
+          order.customer_id != null &&
+          customer.id != null &&
+          String(order.customer_id) === String(customer.id)
+        ) {
+          return true;
+        }
 
-      if (!acc[key]) {
-        acc[key] = {
-          name: order.customer,
-          phone: order.phone,
-          orders: [],
-        };
-      }
+        return (
+          String(order.phone || "") === String(customer.phone || "") &&
+          Boolean(customer.phone)
+        );
+      });
 
-      acc[key].orders.push(order);
+      const totalSpent = customerOrders.reduce(
+        (sum, order) => sum + Number(order.total || 0),
+        0
+      );
 
-      return acc;
-    }, {})
-  );
+      const visitDates = customerOrders
+        .map((order) => order.deliveryDate || order.delivery_date || order.created_at)
+        .filter(Boolean)
+        .sort((a, b) => new Date(b) - new Date(a));
 
-  // Search customers
-  const filteredCustomers = customers.filter((customer) => {
-    const term = search.toLowerCase();
+      return {
+        ...customer,
+        orders: customerOrders,
+        totalSpent,
+        lastVisit: visitDates[0] || "—",
+      };
+    });
+  }, [customers, orders]);
 
+  const term = search.trim().toLowerCase();
+
+  const filteredCustomers = customersWithStats.filter((customer) => {
     return (
-      customer.name.toLowerCase().includes(term) ||
-      customer.phone.includes(term)
+      String(customer.name || "").toLowerCase().includes(term) ||
+      String(customer.phone || "").toLowerCase().includes(term) ||
+      String(customer.email || "").toLowerCase().includes(term)
     );
   });
 
-  // Pagination
   const paginatedCustomers = filteredCustomers.slice(
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
@@ -65,8 +96,24 @@ function CustomerTable({ search = "" }) {
     setOpen(true);
   };
 
+  const formatDate = (value) => {
+    if (!value || value === "—") return "—";
+
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime())
+      ? "—"
+      : date.toLocaleDateString();
+  };
+
   return (
     <>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Failed to load customers: {error}
+        </Alert>
+      )}
+
       <TableContainer component={Paper} elevation={3}>
         <Table>
           <TableHead>
@@ -82,49 +129,36 @@ function CustomerTable({ search = "" }) {
           </TableHead>
 
           <TableBody>
-            {paginatedCustomers.length > 0 ? (
-              paginatedCustomers.map((customer) => {
-                const totalSpent = customer.orders.reduce(
-                  (sum, order) => sum + Number(order.total),
-                  0
-                );
-
-                const lastVisit = customer.orders.reduce(
-                  (latest, order) =>
-                    order.deliveryDate > latest
-                      ? order.deliveryDate
-                      : latest,
-                  customer.orders[0].deliveryDate
-                );
-
-                return (
-                  <TableRow key={customer.phone} hover>
-                    <TableCell>{customer.name}</TableCell>
-
-                    <TableCell>{customer.phone}</TableCell>
-
-                    <TableCell>{customer.orders.length}</TableCell>
-
-                    <TableCell>KES {totalSpent}</TableCell>
-
-                    <TableCell>
-                      <LoyaltyBadge spent={totalSpent} />
-                    </TableCell>
-
-                    <TableCell>{lastVisit}</TableCell>
-
-                    <TableCell align="center">
-                      <Button
-                        variant="contained"
-                        size="small"
-                        onClick={() => handleView(customer)}
-                      >
-                        View
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center">
+                  Loading customers...
+                </TableCell>
+              </TableRow>
+            ) : paginatedCustomers.length > 0 ? (
+              paginatedCustomers.map((customer) => (
+                <TableRow key={customer.id} hover>
+                  <TableCell>{customer.name || "—"}</TableCell>
+                  <TableCell>{customer.phone || "—"}</TableCell>
+                  <TableCell>{customer.orders.length}</TableCell>
+                  <TableCell>
+                    KES {customer.totalSpent.toLocaleString()}
+                  </TableCell>
+                  <TableCell>
+                    <LoyaltyBadge spent={customer.totalSpent} />
+                  </TableCell>
+                  <TableCell>{formatDate(customer.lastVisit)}</TableCell>
+                  <TableCell align="center">
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() => handleView(customer)}
+                    >
+                      View
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : (
               <TableRow>
                 <TableCell colSpan={7} align="center">
@@ -138,7 +172,10 @@ function CustomerTable({ search = "" }) {
         <TablePagination
           component="div"
           count={filteredCustomers.length}
-          page={page}
+          page={Math.min(
+            page,
+            Math.max(0, Math.ceil(filteredCustomers.length / rowsPerPage) - 1)
+          )}
           rowsPerPage={rowsPerPage}
           onPageChange={(event, newPage) => setPage(newPage)}
           onRowsPerPageChange={(event) => {
