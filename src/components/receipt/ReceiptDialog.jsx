@@ -1,5 +1,5 @@
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 
 import {
@@ -10,6 +10,8 @@ import {
   Button,
   Typography,
   Box,
+  CircularProgress,
+  Alert,
 } from "@mui/material";
 
 import PrintIcon from "@mui/icons-material/Print";
@@ -28,8 +30,106 @@ function ReceiptDialog({ open, handleClose, order }) {
   );
 
   const currentUser = useSelector((state) => state.auth.user);
+  const token = useSelector((state) => state.auth.token);
 
   const receiptOrder = latestOrder || order;
+
+  const [payments, setPayments] = useState([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
+
+  // Load the complete payment history directly from the backend.
+  useEffect(() => {
+    if (!open || !receiptOrder?.id) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const loadPayments = async () => {
+      setLoadingPayments(true);
+      setPaymentError("");
+      setPayments([]);
+
+      try {
+        const baseUrl = (
+          import.meta.env.VITE_API_URL ||
+          "http://localhost:5000"
+        ).replace(/\/+$/, "");
+
+        const response = await fetch(
+          `${baseUrl}/api/orders/${receiptOrder.id}/payments`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token
+                ? { Authorization: `Bearer ${token}` }
+                : {}),
+            },
+            signal: controller.signal,
+          }
+        );
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(
+            data?.message ||
+              data?.error ||
+              `Could not load payment history (${response.status}).`
+          );
+        }
+
+        if (!Array.isArray(data)) {
+          throw new Error(
+            "The server returned an unexpected payment history response."
+          );
+        }
+
+        // Display installments from oldest to newest.
+        const sortedPayments = [...data].sort((a, b) => {
+          const dateA = new Date(
+            a.date || a.createdAt || 0
+          ).getTime();
+
+          const dateB = new Date(
+            b.date || b.createdAt || 0
+          ).getTime();
+
+          if (dateA !== dateB) {
+            return dateA - dateB;
+          }
+
+          return Number(a.id || 0) - Number(b.id || 0);
+        });
+
+        setPayments(sortedPayments);
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          console.error(
+            "Failed to load receipt payment history:",
+            error
+          );
+
+          setPaymentError(
+            error.message ||
+              "Unable to load payment history. Please try again."
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoadingPayments(false);
+        }
+      }
+    };
+
+    loadPayments();
+
+    return () => {
+      controller.abort();
+    };
+  }, [open, receiptOrder?.id, token]);
 
   const receiptNumber = useMemo(() => {
     if (!receiptOrder) return "";
@@ -40,14 +140,6 @@ function ReceiptDialog({ open, handleClose, order }) {
     );
   }, [receiptOrder]);
 
-  const payments = Array.isArray(receiptOrder?.payments)
-    ? [...receiptOrder.payments].sort((a, b) => {
-        const dateA = new Date(a.date || a.createdAt || 0).getTime();
-        const dateB = new Date(b.date || b.createdAt || 0).getTime();
-        return dateA - dateB;
-      })
-    : [];
-
   const staffName =
     currentUser?.fullName ||
     currentUser?.name ||
@@ -56,7 +148,10 @@ function ReceiptDialog({ open, handleClose, order }) {
     "Unknown staff member";
 
   const handlePrint = () => {
+    if (loadingPayments || paymentError) return;
+
     const receipt = document.getElementById("receipt-content");
+
     if (!receipt) return;
 
     const printWindow = window.open(
@@ -125,6 +220,12 @@ function ReceiptDialog({ open, handleClose, order }) {
     printWindow.close();
   };
 
+  const handleDownloadPDF = () => {
+    if (loadingPayments || paymentError || !receiptOrder) return;
+
+    generateReceiptPDF(receiptOrder, payments, staffName);
+  };
+
   if (!receiptOrder) return null;
 
   return (
@@ -147,6 +248,7 @@ function ReceiptDialog({ open, handleClose, order }) {
           <Typography variant="h6" fontWeight="bold">
             FreshFold Laundry Receipt
           </Typography>
+
           <Typography variant="body2" color="text.secondary">
             Receipt No: {receiptNumber}
           </Typography>
@@ -168,11 +270,58 @@ function ReceiptDialog({ open, handleClose, order }) {
           or downloading the receipt.
         </Typography>
 
-        <ReceiptContent
-          order={receiptOrder}
-          payments={payments}
-          staffName={staffName}
-        />
+        {loadingPayments && (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 2,
+              py: 4,
+            }}
+          >
+            <CircularProgress size={24} />
+
+            <Typography variant="body2">
+              Loading payment history...
+            </Typography>
+          </Box>
+        )}
+
+        {paymentError && (
+          <Alert
+            severity="error"
+            sx={{ mb: 2 }}
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => {
+                  // Re-run the effect by changing the dialog's
+                  // loading request key through a local retry state.
+                  setPaymentError("");
+                  setLoadingPayments(false);
+                  setPayments([]);
+                }}
+              >
+                Close message
+              </Button>
+            }
+          >
+            {paymentError}
+            {" "}Printing and PDF download are disabled to avoid producing
+            a receipt with incomplete payment history. Close and reopen
+            this receipt to try loading the history again.
+          </Alert>
+        )}
+
+        {!loadingPayments && !paymentError && (
+          <ReceiptContent
+            order={receiptOrder}
+            payments={payments}
+            staffName={staffName}
+          />
+        )}
       </DialogContent>
 
       <DialogActions
@@ -190,9 +339,8 @@ function ReceiptDialog({ open, handleClose, order }) {
             variant="outlined"
             color="error"
             startIcon={<PictureAsPdfIcon />}
-            onClick={() =>
-              generateReceiptPDF(receiptOrder, payments, staffName)
-            }
+            onClick={handleDownloadPDF}
+            disabled={loadingPayments || Boolean(paymentError)}
           >
             Download PDF
           </Button>
@@ -201,6 +349,7 @@ function ReceiptDialog({ open, handleClose, order }) {
             variant="contained"
             startIcon={<PrintIcon />}
             onClick={handlePrint}
+            disabled={loadingPayments || Boolean(paymentError)}
           >
             Print Receipt
           </Button>
