@@ -43,9 +43,9 @@ function EditOrderDialog({ open, handleClose, order }) {
             quantity: Number(item.quantity) || 1,
             unitPrice: Number(
               item.unitPrice ??
-              item.unit_price ??
-              serviceDetails?.price ??
-              0
+                item.unit_price ??
+                serviceDetails?.price ??
+                0
             ),
           };
         })
@@ -65,8 +65,8 @@ function EditOrderDialog({ open, handleClose, order }) {
           quantity,
           unitPrice: Number(
             serviceDetails?.price ??
-            (Number(order.total) / quantity) ??
-            0
+              Number(order.total) / quantity ??
+              0
           ),
         },
       ];
@@ -125,12 +125,9 @@ function EditOrderDialog({ open, handleClose, order }) {
     const total = items.reduce(
       (sum, item) =>
         sum +
-        Number(item.quantity) *
-          Number(item.unitPrice),
+        Number(item.quantity) * Number(item.unitPrice),
       0
     );
-
-    const amountPaid = Number(form.amountPaid) || 0;
 
     setSaving(true);
     setError("");
@@ -154,9 +151,6 @@ function EditOrderDialog({ open, handleClose, order }) {
             unitPrice: Number(item.unitPrice),
           })),
           total,
-          amountPaid,
-          balance: Math.max(total - amountPaid, 0),
-          change: Math.max(amountPaid - total, 0),
         })
       ).unwrap();
 
@@ -168,7 +162,7 @@ function EditOrderDialog({ open, handleClose, order }) {
         typeof err === "string"
           ? err
           : err?.message ||
-            "Failed to update the order. Please try again."
+              "Failed to update the order. Please try again."
       );
     } finally {
       setSaving(false);
@@ -193,10 +187,7 @@ function EditOrderDialog({ open, handleClose, order }) {
           </Alert>
         )}
 
-        <OrderForm
-          form={form}
-          setForm={setForm}
-        />
+        <OrderForm form={form} setForm={setForm} />
       </DialogContent>
 
       <DialogActions>
