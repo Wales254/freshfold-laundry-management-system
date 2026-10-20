@@ -1,8 +1,15 @@
-
 const express = require("express");
 const pool = require("../db");
+const {
+  authenticateToken,
+  authorizeRoles,
+} = require("../middleware/auth");
 
 const router = express.Router();
+
+// Require a valid login for every order endpoint.
+router.use(authenticateToken);
+
 
 const normalizePaymentStatus = (status) => {
   if (status == null || String(status).trim() === "") {

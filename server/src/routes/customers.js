@@ -1,8 +1,12 @@
-
 const express = require("express");
 const pool = require("../db");
+const { authenticateToken } = require("../middleware/auth");
 
 const router = express.Router();
+
+// Require a valid login for every customer endpoint.
+router.use(authenticateToken);
+
 
 // GET all customers
 router.get("/", async (req, res) => {
