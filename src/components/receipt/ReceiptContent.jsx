@@ -34,6 +34,11 @@ const formatReceiptDate = (value) => {
   }
 };
 
+const toAmount = (value) => {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount : 0;
+};
+
 function ReceiptContent({ order, payments = [], staffName }) {
   if (!order) return null;
 
@@ -42,29 +47,47 @@ function ReceiptContent({ order, payments = [], staffName }) {
 
   const allPayments = Array.isArray(payments) ? payments : [];
 
-  const totalPaid = allPayments.length
-    ? allPayments.reduce(
-        (sum, item) => sum + Number(item.amount || 0),
-        0
-      )
-    : Number(order.amountPaid || 0);
+  // Use the recorded installments when available.
+  // Otherwise, fall back to the order's recorded amountPaid.
+  const totalPaid =
+    allPayments.length > 0
+      ? allPayments.reduce(
+          (sum, payment) => sum + toAmount(payment.amount),
+          0
+        )
+      : toAmount(order.amountPaid);
 
-  const orderTotal = Number(order.total || 0);
-  const balance = Math.max(
-    0,
-    Number(
-      order.balance ?? orderTotal - totalPaid
-    )
-  );
+  const orderTotal = Math.max(0, toAmount(order.total));
+
+  // Always calculate the receipt balance from the order total
+  // and payments, rather than trusting a possibly stale order.balance.
+  const balance = Math.max(0, orderTotal - totalPaid);
+
+  // Calculate payment status using the same figures shown on the receipt.
+  const paymentStatus =
+    balance <= 0
+      ? "Paid"
+      : totalPaid > 0
+        ? "Partial"
+        : "Unpaid";
 
   const services =
     Array.isArray(order.services) && order.services.length
       ? order.services
       : [order];
 
+  const sortedPayments = [...allPayments].sort((a, b) => {
+    const dateA = new Date(a.date || a.createdAt || 0).getTime();
+    const dateB = new Date(b.date || b.createdAt || 0).getTime();
+
+    if (dateA !== dateB) return dateA - dateB;
+
+    return toAmount(a.id) - toAmount(b.id);
+  });
+
   const latestPayment =
-    allPayments.length > 0
-      ? allPayments[allPayments.length - 1]
+    sortedPayments.length > 0
+      ? sortedPayments[sortedPayments.length - 1]
       : null;
 
   return (
@@ -222,17 +245,25 @@ function ReceiptContent({ order, payments = [], staffName }) {
         <Table size="small" aria-label="Order services">
           <TableHead>
             <TableRow sx={{ bgcolor: "#f2f5f9" }}>
-              <TableCell><strong>Service</strong></TableCell>
-              <TableCell align="center"><strong>Qty</strong></TableCell>
-              <TableCell align="right"><strong>Unit Price</strong></TableCell>
-              <TableCell align="right"><strong>Total</strong></TableCell>
+              <TableCell>
+                <strong>Service</strong>
+              </TableCell>
+              <TableCell align="center">
+                <strong>Qty</strong>
+              </TableCell>
+              <TableCell align="right">
+                <strong>Unit Price</strong>
+              </TableCell>
+              <TableCell align="right">
+                <strong>Total</strong>
+              </TableCell>
             </TableRow>
           </TableHead>
 
           <TableBody>
             {services.map((item, index) => {
-              const quantity = Number(item.quantity || 0);
-              const itemTotal = Number(item.total || 0);
+              const quantity = toAmount(item.quantity);
+              const itemTotal = toAmount(item.total);
               const unitPrice =
                 quantity > 0 ? itemTotal / quantity : itemTotal;
 
@@ -270,23 +301,31 @@ function ReceiptContent({ order, payments = [], staffName }) {
         <Table size="small" aria-label="Installment payment history">
           <TableHead>
             <TableRow sx={{ bgcolor: "#f2f5f9" }}>
-              <TableCell><strong>#</strong></TableCell>
-              <TableCell><strong>Date</strong></TableCell>
-              <TableCell><strong>Method</strong></TableCell>
-              <TableCell><strong>Transaction Code</strong></TableCell>
-              <TableCell align="right"><strong>Amount</strong></TableCell>
+              <TableCell>
+                <strong>#</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Date</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Method</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Transaction Code</strong>
+              </TableCell>
+              <TableCell align="right">
+                <strong>Amount</strong>
+              </TableCell>
             </TableRow>
           </TableHead>
 
           <TableBody>
-            {allPayments.length > 0 ? (
-              allPayments.map((item, index) => (
+            {sortedPayments.length > 0 ? (
+              sortedPayments.map((item, index) => (
                 <TableRow key={item.id || index}>
                   <TableCell>{index + 1}</TableCell>
                   <TableCell>
-                    {formatReceiptDate(
-                      item.date || item.createdAt
-                    )}
+                    {formatReceiptDate(item.date || item.createdAt)}
                   </TableCell>
                   <TableCell>{item.method || "N/A"}</TableCell>
                   <TableCell sx={{ overflowWrap: "anywhere" }}>
@@ -299,7 +338,7 @@ function ReceiptContent({ order, payments = [], staffName }) {
                       : "—"}
                   </TableCell>
                   <TableCell align="right">
-                    {formatCurrency(Number(item.amount || 0))}
+                    {formatCurrency(toAmount(item.amount))}
                   </TableCell>
                 </TableRow>
               ))
@@ -354,9 +393,17 @@ function ReceiptContent({ order, payments = [], staffName }) {
 
           <Stack direction="row" justifyContent="space-between" gap={2}>
             <Typography fontWeight={700}>Payment Status</Typography>
-            <Typography fontWeight={700}>
-              {order.paymentStatus ||
-                (balance <= 0 ? "Paid" : totalPaid > 0 ? "Partial" : "Unpaid")}
+            <Typography
+              fontWeight={700}
+              color={
+                paymentStatus === "Paid"
+                  ? "success.main"
+                  : paymentStatus === "Partial"
+                    ? "warning.main"
+                    : "error.main"
+              }
+            >
+              {paymentStatus}
             </Typography>
           </Stack>
         </Stack>
