@@ -8,7 +8,58 @@ import {
   deleteOrderApi,
 } from "../api/ordersApi";
 
-// Fetch orders from PostgreSQL
+// Safely convert values to numbers.
+const toAmount = (value) => {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount : 0;
+};
+
+// Normalize an order without discarding its payment history.
+const normalizeOrder = (order, existingOrder = {}) => {
+  const mergedOrder = {
+    ...existingOrder,
+    ...order,
+  };
+
+  const total = toAmount(mergedOrder.total);
+
+  const payments = Array.isArray(order.payments)
+    ? order.payments
+    : Array.isArray(existingOrder.payments)
+      ? existingOrder.payments
+      : [];
+
+  const amountPaid =
+    order.amountPaid != null
+      ? toAmount(order.amountPaid)
+      : existingOrder.amountPaid != null
+        ? toAmount(existingOrder.amountPaid)
+        : payments.reduce(
+            (sum, payment) => sum + toAmount(payment.amount),
+            0
+          );
+
+  const balance =
+    order.balance != null
+      ? toAmount(order.balance)
+      : existingOrder.balance != null
+        ? toAmount(existingOrder.balance)
+        : Math.max(total - amountPaid, 0);
+
+  return {
+    ...mergedOrder,
+    total,
+    amountPaid,
+    balance,
+    change:
+      order.change != null
+        ? toAmount(order.change)
+        : toAmount(existingOrder.change),
+    payments,
+  };
+};
+
+// Fetch orders from PostgreSQL.
 export const fetchOrdersFromApi = createAsyncThunk(
   "orders/fetchFromApi",
   async (_, { rejectWithValue }) => {
@@ -20,7 +71,7 @@ export const fetchOrdersFromApi = createAsyncThunk(
   }
 );
 
-// Create an order in PostgreSQL
+// Create an order in PostgreSQL.
 export const addOrderToApi = createAsyncThunk(
   "orders/addToApi",
   async (order, { rejectWithValue }) => {
@@ -32,7 +83,7 @@ export const addOrderToApi = createAsyncThunk(
   }
 );
 
-// Update an order in PostgreSQL
+// Update an order in PostgreSQL.
 export const updateOrderInApi = createAsyncThunk(
   "orders/updateInApi",
   async (order, { rejectWithValue }) => {
@@ -45,7 +96,7 @@ export const updateOrderInApi = createAsyncThunk(
   }
 );
 
-// Delete an order from PostgreSQL
+// Delete an order from PostgreSQL.
 export const deleteOrderFromApi = createAsyncThunk(
   "orders/deleteFromApi",
   async (id, { rejectWithValue }) => {
@@ -69,9 +120,10 @@ const orderSlice = createSlice({
   initialState,
 
   reducers: {
-    // Update order status locally
+    // Update order status locally.
     updateStatus: (state, action) => {
       const { id, status } = action.payload;
+
       const order = state.orders.find(
         (item) => String(item.id) === String(id)
       );
@@ -81,7 +133,8 @@ const orderSlice = createSlice({
       }
     },
 
-    // Update an order locally
+    // Update an order locally while preserving payment history
+    // if the supplied order does not contain a payments array.
     updateOrder: (state, action) => {
       const updatedOrder = action.payload;
 
@@ -90,11 +143,15 @@ const orderSlice = createSlice({
       );
 
       if (index !== -1) {
-        state.orders[index] = updatedOrder;
+        state.orders[index] = normalizeOrder(
+          updatedOrder,
+          state.orders[index]
+        );
       }
     },
 
-    // Record payment locally (database integration comes next)
+    // Record a payment locally.
+    // Persistent payments should be recorded through the backend API.
     updatePayment: (state, action) => {
       const {
         id,
@@ -109,11 +166,9 @@ const orderSlice = createSlice({
 
       if (!order) return;
 
-      const paymentAmount = Number(amountPaid);
+      const paymentAmount = toAmount(amountPaid);
 
-      if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
-        return;
-      }
+      if (paymentAmount <= 0) return;
 
       if (!Array.isArray(order.payments)) {
         order.payments = [];
@@ -128,11 +183,11 @@ const orderSlice = createSlice({
       });
 
       const totalPaid = order.payments.reduce(
-        (sum, payment) => sum + Number(payment.amount),
+        (sum, payment) => sum + toAmount(payment.amount),
         0
       );
 
-      const total = Number(order.total);
+      const total = toAmount(order.total);
 
       order.amountPaid = totalPaid;
       order.balance = Math.max(total - totalPaid, 0);
@@ -142,11 +197,12 @@ const orderSlice = createSlice({
         totalPaid >= total
           ? "Paid"
           : totalPaid > 0
-          ? "Partial"
-          : "Unpaid";
+            ? "Partial"
+            : "Unpaid";
     },
 
-    // Clear payment history locally
+    // Explicit local reset only. Do not dispatch this during
+    // normal order updates or payment-page refreshes.
     clearPayments: (state, action) => {
       const order = state.orders.find(
         (item) => String(item.id) === String(action.payload)
@@ -156,7 +212,7 @@ const orderSlice = createSlice({
 
       order.payments = [];
       order.amountPaid = 0;
-      order.balance = Number(order.total);
+      order.balance = toAmount(order.total);
       order.change = 0;
       order.paymentStatus = "Unpaid";
     },
@@ -168,34 +224,46 @@ const orderSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
+
       .addCase(fetchOrdersFromApi.fulfilled, (state, action) => {
         state.loading = false;
-        state.orders = action.payload.map((order) => ({
-          ...order,
-          total: Number(order.total),
-          amountPaid: Number(order.amountPaid || 0),
-          balance: Number(order.balance || 0),
-          change: Number(order.change || 0),
-          payments: order.payments || [],
-        }));
+
+        // Normalize fetched orders while preserving payment arrays
+        // supplied by the backend.
+        state.orders = action.payload.map((order) => {
+          const existingOrder = state.orders.find(
+            (item) => String(item.id) === String(order.id)
+          );
+
+          return normalizeOrder(order, existingOrder || {});
+        });
       })
+
       .addCase(fetchOrdersFromApi.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
 
       .addCase(addOrderToApi.fulfilled, (state, action) => {
-        const order = action.payload;
+        const order = normalizeOrder(action.payload);
 
-        state.orders.unshift({
-          ...order,
-          total: Number(order.total),
-          amountPaid: Number(order.amountPaid || 0),
-          balance: Number(order.balance || 0),
-          change: Number(order.change || 0),
-          payments: order.payments || [],
-        });
+        // Avoid adding the same order twice.
+        const existingIndex = state.orders.findIndex(
+          (item) => String(item.id) === String(order.id)
+        );
+
+        if (existingIndex !== -1) {
+          state.orders[existingIndex] = normalizeOrder(
+            order,
+            state.orders[existingIndex]
+          );
+        } else {
+          state.orders.unshift(order);
+        }
+
+        state.error = null;
       })
+
       .addCase(addOrderToApi.rejected, (state, action) => {
         state.error = action.payload || action.error.message;
       })
@@ -208,16 +276,15 @@ const orderSlice = createSlice({
         );
 
         if (index !== -1) {
-          state.orders[index] = {
-            ...state.orders[index],
-            ...updatedOrder,
-            total: Number(updatedOrder.total),
-            amountPaid: Number(updatedOrder.amountPaid || 0),
-            balance: Number(updatedOrder.balance || 0),
-            change: Number(updatedOrder.change || 0),
-          };
+          state.orders[index] = normalizeOrder(
+            updatedOrder,
+            state.orders[index]
+          );
         }
+
+        state.error = null;
       })
+
       .addCase(updateOrderInApi.rejected, (state, action) => {
         state.error = action.payload || action.error.message;
       })
@@ -227,6 +294,7 @@ const orderSlice = createSlice({
           (item) => String(item.id) !== String(action.payload)
         );
       })
+
       .addCase(deleteOrderFromApi.rejected, (state, action) => {
         state.error = action.payload || action.error.message;
       });
