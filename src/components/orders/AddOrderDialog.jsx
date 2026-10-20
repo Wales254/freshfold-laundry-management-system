@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { addOrderToApi } from "../../redux/orderSlice";
@@ -12,46 +13,34 @@ import {
 } from "@mui/material";
 
 import OrderForm from "./OrderForm";
-import { calculateTotal } from "../../utils/pricing";
 
 function AddOrderDialog({ open, handleClose }) {
   const dispatch = useDispatch();
 
-  // Get services from Redux
   const services = useSelector(
     (state) => state.pricing.services
   );
 
-  // Default service
   const defaultService =
     services.length > 0 ? services[0].name : "";
 
-  const getInitialForm = () => {
-    const total = calculateTotal(
-      services,
-      defaultService,
-      1
-    );
-
-    return {
-      id: "",
-      customer: "",
-      phone: "",
-      service: defaultService,
-      quantity: 1,
-      deliveryDate: "",
-      status: "Received",
-      total,
-
-      // Payment Information
-      paymentStatus: "Pending",
-      paymentMethod: "",
-      amountPaid: 0,
-      balance: total,
-      change: 0,
-      paymentDate: "",
-    };
-  };
+  const getInitialForm = () => ({
+    id: "",
+    customer: "",
+    phone: "",
+    service: defaultService,
+    quantity: 1,
+    items: [],
+    deliveryDate: "",
+    status: "Received",
+    total: 0,
+    paymentStatus: "Unpaid",
+    paymentMethod: "",
+    amountPaid: 0,
+    balance: 0,
+    change: 0,
+    paymentDate: "",
+  });
 
   const [form, setForm] = useState(getInitialForm);
   const [saving, setSaving] = useState(false);
@@ -62,49 +51,116 @@ function AddOrderDialog({ open, handleClose }) {
 
     if (
       !String(form.customer || "").trim() ||
-      !String(form.phone || "").trim() ||
-      !form.service ||
-      Number(form.quantity) < 1
+      !String(form.phone || "").trim()
     ) {
       setError(
-        "Please enter the customer name, phone, service, and a valid quantity."
+        "Please enter the customer name and phone number."
       );
       return;
     }
 
-    const total = calculateTotal(
-      services,
-      form.service,
-      Number(form.quantity)
-    );
+    // Read every service selected in the form.
+    const selectedItems = Array.isArray(form.items)
+      ? form.items
+      : [];
 
-    if (!Number.isFinite(Number(total)) || Number(total) < 0) {
-      setError("The order total is invalid. Please check your pricing.");
+    if (selectedItems.length === 0) {
+      setError("Please add at least one service.");
       return;
     }
+
+    // Resolve prices from the current pricing settings.
+    const items = selectedItems.map((item) => {
+      const selectedService = services.find(
+        (service) => service.name === item.service
+      );
+
+      const unitPrice = selectedService
+        ? Number(selectedService.price)
+        : Number(item.unitPrice);
+
+      return {
+        service: String(item.service || "").trim(),
+        quantity: Number(item.quantity),
+        unitPrice,
+      };
+    });
+
+    // Validate every service before sending the order.
+    for (const item of items) {
+      if (!item.service) {
+        setError("Please select a service for every item.");
+        return;
+      }
+
+      if (
+        !Number.isInteger(item.quantity) ||
+        item.quantity < 1
+      ) {
+        setError(
+          `Enter a valid whole-number quantity for ${item.service}.`
+        );
+        return;
+      }
+
+      if (
+        !Number.isFinite(item.unitPrice) ||
+        item.unitPrice < 0
+      ) {
+        setError(
+          `The price for ${item.service} is invalid. Check your pricing settings.`
+        );
+        return;
+      }
+    }
+
+    // Calculate the total using ALL selected services.
+    const total = Math.round(
+      items.reduce(
+        (sum, item) =>
+          sum + item.quantity * item.unitPrice,
+        0
+      ) * 100
+    ) / 100;
+
+    const totalQuantity = items.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
+
+    const serviceNames = items
+      .map((item) => item.service)
+      .join(", ");
+
+    const newOrder = {
+      customer: String(form.customer).trim(),
+      phone: String(form.phone).trim(),
+
+      // Keep summary fields for compatibility.
+      service: serviceNames,
+      quantity: totalQuantity,
+      total,
+
+      // Send every selected service to the backend.
+      items,
+
+      deliveryDate: form.deliveryDate || null,
+      status: form.status || "Received",
+
+      // A new order starts with no payments.
+      paymentStatus: "Unpaid",
+      paymentMethod: null,
+      amountPaid: 0,
+      balance: total,
+      change: 0,
+      paymentDate: null,
+    };
 
     setSaving(true);
     setError("");
 
     try {
-      const newOrder = {
-        customer: String(form.customer).trim(),
-        phone: String(form.phone).trim(),
-        service: form.service,
-        quantity: Number(form.quantity),
-        deliveryDate: form.deliveryDate || null,
-        status: form.status || "Received",
-        total: Number(total),
-
-        // Initial payment information
-        paymentStatus: "Unpaid",
-        paymentMethod: null,
-        amountPaid: 0,
-        balance: Number(total),
-        change: 0,
-        paymentDate: null,
-      };
-
+      // Create the complete order in one request.
       await dispatch(addOrderToApi(newOrder)).unwrap();
 
       setForm(getInitialForm());
@@ -116,7 +172,8 @@ function AddOrderDialog({ open, handleClose }) {
       setError(
         typeof err === "string"
           ? err
-          : "Failed to save the order. Check that the backend and database are running, then try again."
+          : err?.message ||
+            "Failed to save the order. Check your connection and try again."
       );
     } finally {
       setSaving(false);
@@ -141,10 +198,7 @@ function AddOrderDialog({ open, handleClose }) {
 
       <DialogContent>
         {error && (
-          <Alert
-            severity="error"
-            sx={{ mb: 2, mt: 1 }}
-          >
+          <Alert severity="error" sx={{ mb: 2, mt: 1 }}>
             {error}
           </Alert>
         )}
