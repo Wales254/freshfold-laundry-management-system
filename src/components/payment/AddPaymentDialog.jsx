@@ -36,7 +36,9 @@ const initialForm = () => ({
 
 function AddPaymentDialog({ open, handleClose }) {
   const dispatch = useDispatch();
-  const orders = useSelector((state) => state.orders.orders);
+
+const orders = useSelector((state) => state.orders.orders);
+const token = useSelector((state) => state.auth.token);
 
   const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
@@ -107,6 +109,7 @@ function AddPaymentDialog({ open, handleClose }) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             amount: paymentAmount,
