@@ -1,20 +1,23 @@
-
-import { useEffect, useState } from "react";
 import {
-  Alert,
-  Paper,
-  Typography,
-  Grid,
-  TextField,
-  Button,
-  MenuItem,
-  Stack,
-  CircularProgress,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  CssBaseline,
+  ThemeProvider,
+  createTheme,
 } from "@mui/material";
 
-import PaletteIcon from "@mui/icons-material/Palette";
-import SaveIcon from "@mui/icons-material/Save";
-import { useAppearance } from "../../context/AppearanceContext";
+const AppearanceContext = createContext(null);
+
+const API_URL = (
+  import.meta.env.VITE_API_URL ||
+  "https://freshfold-laundry-management-system.onrender.com"
+).replace(/\/$/, "");
 
 const DEFAULT_SETTINGS = {
   theme: "Light",
@@ -24,163 +27,183 @@ const DEFAULT_SETTINGS = {
   language: "English",
 };
 
-export default function AppearanceSettings() {
-  const {
-    settings: savedSettings,
-    saveAppearance,
-    refreshAppearance,
-    loaded,
-  } = useAppearance();
+const COLORS = {
+  Blue: "#1976d2",
+  Green: "#2e7d32",
+  Purple: "#7b1fa2",
+  Orange: "#ed6c02",
+  Red: "#d32f2f",
+};
 
-  const [settings, setSettings] = useState(savedSettings);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+function getAuthToken() {
+  try {
+    const auth = JSON.parse(localStorage.getItem("auth") || "null");
+    return auth?.token || null;
+  } catch {
+    return null;
+  }
+}
 
-  useEffect(() => {
-    setSettings({
-      ...DEFAULT_SETTINGS,
-      ...savedSettings,
-    });
-  }, [savedSettings]);
+export function AppearanceProvider({ children }) {
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [loaded, setLoaded] = useState(false);
+  const [systemDark, setSystemDark] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(prefers-color-scheme: dark)").matches
+      : false
+  );
 
-  async function handleSave() {
-    setSaving(true);
-    setError("");
-    setSuccess("");
+  const refreshAppearance = useCallback(async () => {
+    const token = getAuthToken();
+
+    if (!token) {
+      setLoaded(true);
+      return;
+    }
 
     try {
-      const result = await saveAppearance(settings);
+      const response = await fetch(`${API_URL}/api/settings/appearance`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      setSuccess(
-        result.message || "Appearance settings saved successfully."
-      );
-    } catch (err) {
-      setError(err.message || "Unable to save appearance settings.");
+      if (!response.ok) {
+        throw new Error("Unable to load appearance preferences.");
+      }
+
+      const data = await response.json();
+
+      if (data.settings) {
+        setSettings((previous) => ({
+          ...previous,
+          ...data.settings,
+        }));
+      }
+    } catch (error) {
+      console.error("Appearance preferences could not be loaded:", error);
     } finally {
-      setSaving(false);
+      setLoaded(true);
     }
-  }
+  }, []);
 
-  const fields = [
-    {
-      name: "theme",
-      label: "Theme",
-      options: ["Light", "Dark", "System"],
-    },
-    {
-      name: "primaryColor",
-      label: "Primary Color",
-      options: ["Blue", "Green", "Purple", "Orange", "Red"],
-    },
-    {
-      name: "layout",
-      label: "Layout",
-      options: ["Comfortable", "Compact"],
-    },
-    {
-      name: "fontSize",
-      label: "Font Size",
-      options: ["Small", "Medium", "Large"],
-    },
-    {
-      name: "language",
-      label: "Language",
-      options: ["English", "Swahili", "French"],
-    },
-  ];
+  useEffect(() => {
+    refreshAppearance();
+  }, [refreshAppearance]);
 
-  if (!loaded) {
-    return (
-      <Paper sx={{ p: 3, borderRadius: 2 }}>
-        <Stack
-          direction="row"
-          spacing={2}
-          alignItems="center"
-          justifyContent="center"
-        >
-          <CircularProgress size={24} />
-          <Typography>Loading appearance settings...</Typography>
-        </Stack>
-      </Paper>
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const update = () => setSystemDark(media.matches);
+
+    update();
+    media.addEventListener("change", update);
+
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  const mode =
+    settings.theme === "Dark" ||
+    (settings.theme === "System" && systemDark)
+      ? "dark"
+      : "light";
+
+  useEffect(() => {
+    document.documentElement.style.colorScheme = mode;
+  }, [mode]);
+
+  const muiTheme = useMemo(
+    () =>
+      createTheme({
+        palette: {
+          mode,
+          primary: {
+            main: COLORS[settings.primaryColor] || COLORS.Blue,
+          },
+          background:
+            mode === "dark"
+              ? {
+                  default: "#121212",
+                  paper: "#1e1e1e",
+                }
+              : {
+                  default: "#f5f7fb",
+                  paper: "#ffffff",
+                },
+        },
+        typography: {
+          fontSize:
+            settings.fontSize === "Small"
+              ? 12
+              : settings.fontSize === "Large"
+                ? 16
+                : 14,
+        },
+        shape: {
+          borderRadius: settings.layout === "Compact" ? 6 : 10,
+        },
+      }),
+    [mode, settings.primaryColor, settings.fontSize, settings.layout]
+  );
+
+  const saveAppearance = useCallback(async (newSettings) => {
+    const token = getAuthToken();
+
+    if (!token) {
+      throw new Error("Your session has expired. Please log in again.");
+    }
+
+    const response = await fetch(`${API_URL}/api/settings/appearance`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(newSettings),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.message || "Unable to save appearance settings.");
+    }
+
+    setSettings((previous) => ({
+      ...previous,
+      ...(data.settings || newSettings),
+    }));
+
+    return data;
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      settings,
+      setSettings,
+      saveAppearance,
+      refreshAppearance,
+      loaded,
+    }),
+    [settings, saveAppearance, refreshAppearance, loaded]
+  );
+
+  return (
+    <AppearanceContext.Provider value={value}>
+      <ThemeProvider theme={muiTheme}>
+        <CssBaseline />
+        {children}
+      </ThemeProvider>
+    </AppearanceContext.Provider>
+  );
+}
+
+export function useAppearance() {
+  const context = useContext(AppearanceContext);
+
+  if (!context) {
+    throw new Error(
+      "useAppearance must be used inside AppearanceProvider."
     );
   }
 
-  return (
-    <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
-      <Stack spacing={3}>
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          <PaletteIcon color="primary" fontSize="large" />
-
-          <div>
-            <Typography variant="h5" fontWeight={700}>
-              Appearance Settings
-            </Typography>
-
-            <Typography variant="body2" color="text.secondary">
-              Customize how your FreshFold dashboard looks.
-            </Typography>
-          </div>
-        </Stack>
-
-        {error && (
-          <Alert severity="error" onClose={() => setError("")}>
-            {error}
-          </Alert>
-        )}
-
-        {success && (
-          <Alert severity="success" onClose={() => setSuccess("")}>
-            {success}
-          </Alert>
-        )}
-
-        <Grid container spacing={2}>
-          {fields.map((field) => (
-            <Grid item xs={12} sm={6} key={field.name}>
-              <TextField
-                select
-                fullWidth
-                name={field.name}
-                label={field.label}
-                value={settings[field.name]}
-                onChange={(event) => {
-                  setSettings((previous) => ({
-                    ...previous,
-                    [field.name]: event.target.value,
-                  }));
-                  setError("");
-                  setSuccess("");
-                }}
-                disabled={saving}
-              >
-                {field.options.map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {option}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-          ))}
-        </Grid>
-
-        <Stack direction="row" justifyContent="flex-end">
-          <Button
-            variant="contained"
-            startIcon={
-              saving ? (
-                <CircularProgress size={18} color="inherit" />
-              ) : (
-                <SaveIcon />
-              )
-            }
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? "Saving..." : "Save Appearance Settings"}
-          </Button>
-        </Stack>
-      </Stack>
-    </Paper>
-  );
+  return context;
 }
