@@ -46,7 +46,7 @@ function App() {
             index
             element={
               <RoleProtectedRoute
-                roles={["admin", "manager", "cashier", "attendant", "staff"]}
+                roles={["admin", "manager", "cashier", "attendant"]}
               >
                 <Dashboard />
               </RoleProtectedRoute>
