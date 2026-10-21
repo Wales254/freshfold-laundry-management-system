@@ -1,5 +1,6 @@
 
 import { useEffect, useRef, useState } from "react";
+
 import {
   Paper,
   Typography,
@@ -30,17 +31,41 @@ const EMPTY_BUSINESS = {
 
 const MAX_LOGO_SIZE = 1024 * 1024; // 1 MB
 
+function getToken() {
+  // FreshFold stores the session as { user, token } under "auth".
+  try {
+    const savedAuth = localStorage.getItem("auth");
+
+    if (savedAuth) {
+      const parsedAuth = JSON.parse(savedAuth);
+
+      if (
+        typeof parsedAuth?.token === "string" &&
+        parsedAuth.token.trim()
+      ) {
+        return parsedAuth.token;
+      }
+    }
+  } catch (error) {
+    console.error("Unable to read the saved login session:", error);
+  }
+
+  // Compatibility with older sessions.
+  return (
+    localStorage.getItem("token") ||
+    localStorage.getItem("authToken") ||
+    null
+  );
+}
+
 function BusinessSettings() {
   const [business, setBusiness] = useState(EMPTY_BUSINESS);
   const [logoData, setLogoData] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
-  const fileInputRef = useRef(null);
 
-  const getToken = () =>
-    localStorage.getItem("token") ||
-    localStorage.getItem("authToken");
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -50,13 +75,17 @@ function BusinessSettings() {
         const token = getToken();
 
         if (!token) {
-          throw new Error("Please log in again to load business settings.");
+          throw new Error(
+            "Your login session could not be found. Please log out and log in again."
+          );
         }
 
         const response = await fetch(
           `${API_URL}/api/settings/business`,
           {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
             signal: controller.signal,
           }
         );
@@ -65,7 +94,10 @@ function BusinessSettings() {
 
         if (!response.ok) {
           throw new Error(
-            data.message || "Unable to load business settings."
+            data.message ||
+              (response.status === 401
+                ? "Your session has expired. Please log in again."
+                : "Unable to load business settings.")
           );
         }
 
@@ -79,7 +111,8 @@ function BusinessSettings() {
         if (error.name !== "AbortError") {
           setMessage({
             type: "error",
-            text: error.message || "Unable to load business settings.",
+            text:
+              error.message || "Unable to load business settings.",
           });
         }
       } finally {
@@ -90,12 +123,17 @@ function BusinessSettings() {
     }
 
     loadBusiness();
+
     return () => controller.abort();
   }, []);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setBusiness((previous) => ({ ...previous, [name]: value }));
+
+    setBusiness((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
   };
 
   const handleLogoChange = (event) => {
@@ -106,10 +144,17 @@ function BusinessSettings() {
 
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
+    const allowedTypes = [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/gif",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
       setMessage({
         type: "error",
-        text: "Please select an image file.",
+        text: "Choose a PNG, JPG, WEBP, or GIF image.",
       });
       return;
     }
@@ -127,9 +172,10 @@ function BusinessSettings() {
     reader.onload = () => {
       if (typeof reader.result === "string") {
         setLogoData(reader.result);
+
         setMessage({
           type: "info",
-          text: "Logo selected. Click Save Changes to store it permanently.",
+          text: "Logo selected. Click Save Changes to save it.",
         });
       }
     };
@@ -137,7 +183,7 @@ function BusinessSettings() {
     reader.onerror = () => {
       setMessage({
         type: "error",
-        text: "Unable to read this image. Please try another file.",
+        text: "Unable to read the selected image.",
       });
     };
 
@@ -161,7 +207,9 @@ function BusinessSettings() {
       const token = getToken();
 
       if (!token) {
-        throw new Error("Please log in again before saving.");
+        throw new Error(
+          "Your login session could not be found. Please log out and log in again."
+        );
       }
 
       const response = await fetch(
@@ -172,7 +220,10 @@ function BusinessSettings() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ ...business, logoData }),
+          body: JSON.stringify({
+            ...business,
+            logoData,
+          }),
         }
       );
 
@@ -180,11 +231,18 @@ function BusinessSettings() {
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Unable to save business settings."
+          data.message ||
+            (response.status === 401
+              ? "Your session has expired or the server rejected your login token."
+              : "Unable to save business settings.")
         );
       }
 
-      setBusiness({ ...EMPTY_BUSINESS, ...data.business });
+      setBusiness({
+        ...EMPTY_BUSINESS,
+        ...data.business,
+      });
+
       setLogoData(data.business.logo_data || "");
 
       setMessage({
@@ -194,7 +252,9 @@ function BusinessSettings() {
     } catch (error) {
       setMessage({
         type: "error",
-        text: error.message || "Unable to save business settings.",
+        text:
+          error.message ||
+          "Unable to save business settings. Check your connection and try again.",
       });
     } finally {
       setSaving(false);
@@ -221,6 +281,7 @@ function BusinessSettings() {
         sx={{ mb: 3 }}
       >
         <BusinessIcon color="primary" fontSize="large" />
+
         <Typography variant="h5" fontWeight="bold">
           Business Information
         </Typography>
@@ -297,8 +358,15 @@ function BusinessSettings() {
               src={logoData || undefined}
               alt="Business logo preview"
               variant="rounded"
-              sx={{ width: 100, height: 100 }}
-              imgProps={{ style: { objectFit: "contain" } }}
+              sx={{
+                width: 100,
+                height: 100,
+                bgcolor: "grey.100",
+                color: "primary.main",
+              }}
+              imgProps={{
+                style: { objectFit: "contain" },
+              }}
             >
               <BusinessIcon fontSize="large" />
             </Avatar>
@@ -307,7 +375,7 @@ function BusinessSettings() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp,image/gif"
                 hidden
                 onChange={handleLogoChange}
               />
@@ -321,7 +389,7 @@ function BusinessSettings() {
               </Button>
 
               <Typography variant="caption" color="text.secondary">
-                Select an image up to 1 MB. Save Changes to keep it.
+                PNG, JPG, WEBP, or GIF. Maximum size: 1 MB.
               </Typography>
             </Stack>
           </Stack>
