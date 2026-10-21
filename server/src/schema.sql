@@ -121,3 +121,43 @@ ADD COLUMN IF NOT EXISTS phone VARCHAR(30);
 -- Ensure employee listings can be sorted efficiently.
 CREATE INDEX IF NOT EXISTS idx_users_created_at
 ON users(created_at);
+
+-- ==========================================
+-- FRESHFOLD LAUNDRY: RECEIPT SETTINGS
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS receipt_settings (
+    id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+
+    prefix VARCHAR(20) NOT NULL DEFAULT 'RC-',
+
+    currency VARCHAR(10) NOT NULL DEFAULT 'KES',
+
+    footer TEXT NOT NULL DEFAULT
+        'Thank you for choosing FreshFold Laundry! We appreciate your trust in us and look forward to serving you again.',
+
+    show_logo BOOLEAN NOT NULL DEFAULT TRUE,
+
+    auto_print BOOLEAN NOT NULL DEFAULT FALSE,
+
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Insert default settings only if they do not exist.
+INSERT INTO receipt_settings (
+    id,
+    prefix,
+    currency,
+    footer,
+    show_logo,
+    auto_print
+)
+VALUES (
+    1,
+    'RC-',
+    'KES',
+    'Thank you for choosing FreshFold Laundry! We appreciate your trust in us and look forward to serving you again.',
+    TRUE,
+    FALSE
+)
+ON CONFLICT (id) DO NOTHING;
