@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Paper,
   Typography,
@@ -17,8 +17,7 @@ import SaveIcon from "@mui/icons-material/Save";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 
 const API_URL = (
-  import.meta.env.VITE_API_URL ||
-  "http://localhost:5000"
+  import.meta.env.VITE_API_URL || "http://localhost:5000"
 ).replace(/\/+$/, "");
 
 const EMPTY_BUSINESS = {
@@ -29,11 +28,15 @@ const EMPTY_BUSINESS = {
   address: "",
 };
 
+const MAX_LOGO_SIZE = 1024 * 1024; // 1 MB
+
 function BusinessSettings() {
   const [business, setBusiness] = useState(EMPTY_BUSINESS);
+  const [logoData, setLogoData] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+  const fileInputRef = useRef(null);
 
   const getToken = () =>
     localStorage.getItem("token") ||
@@ -47,19 +50,13 @@ function BusinessSettings() {
         const token = getToken();
 
         if (!token) {
-          setMessage({
-            type: "error",
-            text: "Please log in again to load business settings.",
-          });
-          return;
+          throw new Error("Please log in again to load business settings.");
         }
 
         const response = await fetch(
           `${API_URL}/api/settings/business`,
           {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
             signal: controller.signal,
           }
         );
@@ -76,6 +73,8 @@ function BusinessSettings() {
           ...EMPTY_BUSINESS,
           ...data.business,
         });
+
+        setLogoData(data.business.logo_data || "");
       } catch (error) {
         if (error.name !== "AbortError") {
           setMessage({
@@ -91,17 +90,58 @@ function BusinessSettings() {
     }
 
     loadBusiness();
-
     return () => controller.abort();
   }, []);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
+    setBusiness((previous) => ({ ...previous, [name]: value }));
+  };
 
-    setBusiness((previous) => ({
-      ...previous,
-      [name]: value,
-    }));
+  const handleLogoChange = (event) => {
+    const file = event.target.files?.[0];
+
+    // Allow selecting the same file again.
+    event.target.value = "";
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setMessage({
+        type: "error",
+        text: "Please select an image file.",
+      });
+      return;
+    }
+
+    if (file.size > MAX_LOGO_SIZE) {
+      setMessage({
+        type: "error",
+        text: "The logo must be 1 MB or smaller.",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setLogoData(reader.result);
+        setMessage({
+          type: "info",
+          text: "Logo selected. Click Save Changes to store it permanently.",
+        });
+      }
+    };
+
+    reader.onerror = () => {
+      setMessage({
+        type: "error",
+        text: "Unable to read this image. Please try another file.",
+      });
+    };
+
+    reader.readAsDataURL(file);
   };
 
   const handleSave = async () => {
@@ -132,7 +172,7 @@ function BusinessSettings() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(business),
+          body: JSON.stringify({ ...business, logoData }),
         }
       );
 
@@ -144,10 +184,8 @@ function BusinessSettings() {
         );
       }
 
-      setBusiness({
-        ...EMPTY_BUSINESS,
-        ...data.business,
-      });
+      setBusiness({ ...EMPTY_BUSINESS, ...data.business });
+      setLogoData(data.business.logo_data || "");
 
       setMessage({
         type: "success",
@@ -255,27 +293,38 @@ function BusinessSettings() {
             spacing={3}
             alignItems={{ xs: "flex-start", sm: "center" }}
           >
-            <Avatar sx={{ width: 80, height: 80 }}>
+            <Avatar
+              src={logoData || undefined}
+              alt="Business logo preview"
+              variant="rounded"
+              sx={{ width: 100, height: 100 }}
+              imgProps={{ style: { objectFit: "contain" } }}
+            >
               <BusinessIcon fontSize="large" />
             </Avatar>
 
-            <Button
-              variant="outlined"
-              startIcon={<CloudUploadIcon />}
-              disabled
-            >
-              Logo Upload — Coming Next
-            </Button>
-          </Stack>
+            <Stack spacing={1}>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={handleLogoChange}
+              />
 
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: "block", mt: 1 }}
-          >
-            Logo upload will be connected separately so the image can
-            be stored and used on receipts.
-          </Typography>
+              <Button
+                variant="outlined"
+                startIcon={<CloudUploadIcon />}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Choose Logo
+              </Button>
+
+              <Typography variant="caption" color="text.secondary">
+                Select an image up to 1 MB. Save Changes to keep it.
+              </Typography>
+            </Stack>
+          </Stack>
         </Grid>
 
         <Grid size={{ xs: 12 }}>

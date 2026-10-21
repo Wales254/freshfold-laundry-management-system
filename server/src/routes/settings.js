@@ -11,7 +11,15 @@ router.use(authenticateToken);
 router.get("/business", async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, name, phone, email, website, address, updated_at
+      `SELECT
+         id,
+         name,
+         phone,
+         email,
+         website,
+         address,
+         logo_data,
+         updated_at
        FROM business_settings
        WHERE id = 1`
     );
@@ -24,7 +32,10 @@ router.get("/business", async (req, res) => {
 
     return res.json({ business: result.rows[0] });
   } catch (error) {
-    console.error("Failed to load business settings:", error.message);
+    console.error(
+      "Failed to load business settings:",
+      error.message
+    );
 
     return res.status(500).json({
       message: "Unable to load business settings.",
@@ -34,14 +45,23 @@ router.get("/business", async (req, res) => {
 
 // PUT /api/settings/business
 router.put("/business", async (req, res) => {
-  const { name, phone, email, website, address } = req.body;
+  const {
+    name,
+    phone,
+    email,
+    website,
+    address,
+    logoData,
+  } = req.body;
 
+  // Validate business name.
   if (typeof name !== "string" || !name.trim()) {
     return res.status(400).json({
       message: "Business name is required.",
     });
   }
 
+  // Validate other business fields.
   if (
     typeof phone !== "string" ||
     typeof email !== "string" ||
@@ -53,6 +73,7 @@ router.put("/business", async (req, res) => {
     });
   }
 
+  // Validate email address.
   if (
     email.trim() &&
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
@@ -62,11 +83,36 @@ router.put("/business", async (req, res) => {
     });
   }
 
+  // Validate uploaded logo.
+  if (
+    logoData !== undefined &&
+    logoData !== null &&
+    logoData !== "" &&
+    (
+      typeof logoData !== "string" ||
+      !/^data:image\/(png|jpeg|webp|gif);base64,/.test(logoData) ||
+      logoData.length > 2_500_000
+    )
+  ) {
+    return res.status(400).json({
+      message: "Invalid logo image or image is too large.",
+    });
+  }
+
   try {
     const result = await pool.query(
       `INSERT INTO business_settings
-         (id, name, phone, email, website, address, updated_at)
-       VALUES (1, $1, $2, $3, $4, $5, NOW())
+         (
+           id,
+           name,
+           phone,
+           email,
+           website,
+           address,
+           logo_data,
+           updated_at
+         )
+       VALUES (1, $1, $2, $3, $4, $5, $6, NOW())
        ON CONFLICT (id)
        DO UPDATE SET
          name = EXCLUDED.name,
@@ -74,14 +120,27 @@ router.put("/business", async (req, res) => {
          email = EXCLUDED.email,
          website = EXCLUDED.website,
          address = EXCLUDED.address,
+         logo_data = COALESCE(
+           EXCLUDED.logo_data,
+           business_settings.logo_data
+         ),
          updated_at = NOW()
-       RETURNING id, name, phone, email, website, address, updated_at`,
+       RETURNING
+         id,
+         name,
+         phone,
+         email,
+         website,
+         address,
+         logo_data,
+         updated_at`,
       [
         name.trim(),
         phone.trim(),
         email.trim(),
         website.trim(),
         address.trim(),
+        logoData || null,
       ]
     );
 
@@ -90,7 +149,10 @@ router.put("/business", async (req, res) => {
       business: result.rows[0],
     });
   } catch (error) {
-    console.error("Failed to save business settings:", error.message);
+    console.error(
+      "Failed to save business settings:",
+      error.message
+    );
 
     return res.status(500).json({
       message: "Unable to save business settings.",
