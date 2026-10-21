@@ -238,4 +238,115 @@ router.put("/receipt", async (req, res) => {
   }
 });
 
+
+/* =========================
+   APPEARANCE SETTINGS
+========================= */
+
+// GET saved appearance settings
+router.get("/appearance", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        theme,
+        primary_color AS "primaryColor",
+        layout,
+        font_size AS "fontSize",
+        language,
+        updated_at
+      FROM public.appearance_settings
+      WHERE id = 1
+    `);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: "Appearance settings not found.",
+      });
+    }
+
+    return res.json({
+      settings: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Get appearance settings error:", error);
+
+    return res.status(500).json({
+      message: "Failed to load appearance settings.",
+    });
+  }
+});
+
+// SAVE appearance settings
+router.put("/appearance", async (req, res) => {
+  try {
+    const {
+      theme,
+      primaryColor,
+      layout,
+      fontSize,
+      language,
+    } = req.body;
+
+    const validThemes = ["Light", "Dark", "System"];
+    const validColors = ["Blue", "Green", "Purple", "Orange", "Red"];
+    const validLayouts = ["Comfortable", "Compact"];
+    const validFontSizes = ["Small", "Medium", "Large"];
+    const validLanguages = ["English", "Swahili", "French"];
+
+    if (
+      !validThemes.includes(theme) ||
+      !validColors.includes(primaryColor) ||
+      !validLayouts.includes(layout) ||
+      !validFontSizes.includes(fontSize) ||
+      !validLanguages.includes(language)
+    ) {
+      return res.status(400).json({
+        message: "Please provide valid appearance settings.",
+      });
+    }
+
+    const result = await pool.query(
+      `
+        INSERT INTO public.appearance_settings (
+          id,
+          theme,
+          primary_color,
+          layout,
+          font_size,
+          language,
+          updated_at
+        )
+        VALUES (1, $1, $2, $3, $4, $5, NOW())
+        ON CONFLICT (id)
+        DO UPDATE SET
+          theme = EXCLUDED.theme,
+          primary_color = EXCLUDED.primary_color,
+          layout = EXCLUDED.layout,
+          font_size = EXCLUDED.font_size,
+          language = EXCLUDED.language,
+          updated_at = NOW()
+        RETURNING
+          theme,
+          primary_color AS "primaryColor",
+          layout,
+          font_size AS "fontSize",
+          language,
+          updated_at
+      `,
+      [theme, primaryColor, layout, fontSize, language]
+    );
+
+    return res.json({
+      message: "Appearance settings saved successfully.",
+      settings: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Save appearance settings error:", error);
+
+    return res.status(500).json({
+      message: "Failed to save appearance settings.",
+    });
+  }
+});
+
 module.exports = router;
