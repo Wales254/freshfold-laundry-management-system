@@ -36,7 +36,7 @@ function Sidebar({ mobileOpen, onClose, onNavigate }) {
 
   const user = useSelector((state) => state.auth.user);
 
-  // Normalize the role to avoid case-sensitive permission mismatches.
+  // Keep the existing role-based permissions.
   const role = String(user?.role || "Guest")
     .trim()
     .toLowerCase();
@@ -120,8 +120,15 @@ function Sidebar({ mobileOpen, onClose, onNavigate }) {
         "& .MuiDrawer-paper": {
           width: drawerWidth,
           boxSizing: "border-box",
-          borderRight: "1px solid #e5eaf2",
-          bgcolor: "#ffffff",
+          borderRight: 1,
+          borderColor: "divider",
+          bgcolor: "background.paper",
+          color: "text.primary",
+          backgroundImage: "none",
+          transition: theme.transitions.create(
+            ["background-color", "color", "border-color"],
+            { duration: theme.transitions.duration.short }
+          ),
         },
       }}
     >
@@ -132,7 +139,7 @@ function Sidebar({ mobileOpen, onClose, onNavigate }) {
             sx={{
               fontWeight: 800,
               letterSpacing: "-0.5px",
-              color: "#1565c0",
+              color: "primary.main",
             }}
           >
             FreshFold
@@ -151,7 +158,8 @@ function Sidebar({ mobileOpen, onClose, onNavigate }) {
           sx={{
             p: 1.5,
             borderRadius: 2,
-            bgcolor: "#f1f6fd",
+            bgcolor: "action.hover",
+            color: "text.primary",
             overflow: "hidden",
           }}
         >
@@ -178,7 +186,7 @@ function Sidebar({ mobileOpen, onClose, onNavigate }) {
         variant="overline"
         sx={{
           px: 3,
-          color: "#8792a2",
+          color: "text.secondary",
           fontWeight: 700,
           letterSpacing: 1,
         }}
@@ -202,23 +210,26 @@ function Sidebar({ mobileOpen, onClose, onNavigate }) {
                 minHeight: 46,
                 borderRadius: 2,
                 px: 2,
-                color: "#536176",
+                color: "text.secondary",
                 transition:
                   "background-color 0.2s ease, color 0.2s ease",
 
                 "&:hover": {
-                  bgcolor: "#f1f6fd",
-                  color: "#1565c0",
+                  bgcolor: "action.hover",
+                  color: "primary.main",
                 },
 
                 "&.active": {
-                  bgcolor: "#1565c0",
-                  color: "#ffffff",
-                  boxShadow: "0 4px 10px rgba(21, 101, 192, 0.18)",
+                  bgcolor: "primary.main",
+                  color: "primary.contrastText",
+                  boxShadow:
+                    theme.palette.mode === "light"
+                      ? "0 4px 10px rgba(0, 0, 0, 0.12)"
+                      : "none",
                 },
 
                 "&.active .MuiListItemIcon-root": {
-                  color: "#ffffff",
+                  color: "inherit",
                 },
               }}
             >
@@ -233,9 +244,13 @@ function Sidebar({ mobileOpen, onClose, onNavigate }) {
 
               <ListItemText
                 primary={item.text}
-                primaryTypographyProps={{
-                  fontSize: 14,
-                  fontWeight: 600,
+                slotProps={{
+                  primary: {
+                    sx: {
+                      fontSize: 14,
+                      fontWeight: 600,
+                    },
+                  },
                 }}
               />
             </ListItemButton>

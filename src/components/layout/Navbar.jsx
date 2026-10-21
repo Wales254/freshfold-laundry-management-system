@@ -19,6 +19,7 @@ import {
   Tooltip,
   Badge,
   ListItemText,
+  useTheme,
 } from "@mui/material";
 
 import MenuIcon from "@mui/icons-material/Menu";
@@ -33,6 +34,7 @@ import EventIcon from "@mui/icons-material/Event";
 function Navbar({ onMenuClick }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const theme = useTheme();
 
   const user = useSelector((state) => state.auth.user);
   const orders = useSelector((state) => state.orders.orders);
@@ -122,10 +124,16 @@ function Navbar({ onMenuClick }) {
       position="fixed"
       elevation={0}
       sx={{
-        zIndex: (theme) => theme.zIndex.drawer + 1,
-        bgcolor: "#ffffff",
-        color: "#243247",
-        borderBottom: "1px solid #e5eaf2",
+        zIndex: theme.zIndex.drawer + 1,
+        bgcolor: "background.paper",
+        color: "text.primary",
+        borderBottom: 1,
+        borderColor: "divider",
+        backgroundImage: "none",
+        transition: theme.transitions.create(
+          ["background-color", "color", "border-color"],
+          { duration: theme.transitions.duration.short }
+        ),
       }}
     >
       <Toolbar
@@ -141,7 +149,7 @@ function Navbar({ onMenuClick }) {
             aria-label="Open navigation menu"
             sx={{
               display: { xs: "inline-flex", md: "none" },
-              color: "#243247",
+              color: "text.primary",
             }}
           >
             <MenuIcon />
@@ -167,7 +175,7 @@ function Navbar({ onMenuClick }) {
             sx={{
               display: { xs: "none", sm: "inline" },
               ml: 0.75,
-              color: "#7a8799",
+              color: "text.secondary",
               fontWeight: 500,
               fontSize: "0.85rem",
             }}
@@ -182,7 +190,7 @@ function Navbar({ onMenuClick }) {
             aria-label={`Open notifications (${notifications.length})`}
             aria-haspopup="true"
             aria-expanded={notificationsOpen}
-            sx={{ color: "#536176" }}
+            sx={{ color: "text.secondary" }}
           >
             <Badge
               badgeContent={notifications.length}
@@ -219,9 +227,7 @@ function Navbar({ onMenuClick }) {
           }}
         >
           <Box sx={{ px: 2, py: 1.5 }}>
-            <Typography fontWeight={800}>
-              Notifications
-            </Typography>
+            <Typography fontWeight={800}>Notifications</Typography>
             <Typography variant="body2" color="text.secondary">
               {notifications.length
                 ? `${notifications.length} order alert${notifications.length === 1 ? "" : "s"}`
@@ -299,14 +305,13 @@ function Navbar({ onMenuClick }) {
               sx={{
                 width: 36,
                 height: 36,
-                bgcolor: "#1565c0",
+                bgcolor: "primary.main",
+                color: "primary.contrastText",
                 fontSize: 15,
                 fontWeight: 700,
               }}
             >
-              {user?.name
-                ? user.name.charAt(0).toUpperCase()
-                : "A"}
+              {user?.name ? user.name.charAt(0).toUpperCase() : "A"}
             </Avatar>
           </IconButton>
         </Tooltip>
