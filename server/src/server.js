@@ -7,6 +7,7 @@ const ordersRouter = require("./routes/orders");
 const customersRouter = require("./routes/customers");
 const authRouter = require("./routes/auth");
 const usersRouter = require("./routes/users");
+const settingsRouter = require("./routes/settings");
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use("/api/orders", ordersRouter);
 app.use("/api/customers", customersRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/users", usersRouter);
+app.use("/api/settings", settingsRouter);
 
 const PORT = process.env.PORT || 5000;
 
