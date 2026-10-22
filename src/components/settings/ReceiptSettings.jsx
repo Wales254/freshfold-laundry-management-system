@@ -33,7 +33,7 @@ const DEFAULT_SETTINGS = {
 // Read the token using the existing Redux authentication storage.
 function getAuthToken() {
   try {
-    const savedAuth = localStorage.getItem("auth");
+    const savedAuth = sessionStorage.getItem("auth");
 
     if (!savedAuth) {
       return null;

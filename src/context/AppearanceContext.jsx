@@ -37,7 +37,7 @@ const COLORS = {
 
 function getAuthToken() {
   try {
-    const auth = JSON.parse(localStorage.getItem("auth") || "null");
+    const auth = JSON.parse(sessionStorage.getItem("auth") || "null");
     return auth?.token || null;
   } catch {
     return null;

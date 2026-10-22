@@ -3,7 +3,7 @@ import { createSlice } from "@reduxjs/toolkit";
 
 function loadSavedSession() {
   try {
-    const saved = localStorage.getItem("auth");
+    const saved = sessionStorage.getItem("auth");
 
     if (!saved) return null;
 
@@ -18,13 +18,13 @@ function loadSavedSession() {
       !parsed.user.id ||
       !parsed.user.role
     ) {
-      localStorage.removeItem("auth");
+      sessionStorage.removeItem("auth");
       return null;
     }
 
     return parsed;
   } catch {
-    localStorage.removeItem("auth");
+    sessionStorage.removeItem("auth");
     return null;
   }
 }
@@ -56,13 +56,16 @@ const authSlice = createSlice({
       state.token = action.payload.token;
       state.error = null;
 
-      localStorage.setItem(
+      sessionStorage.setItem(
         "auth",
         JSON.stringify({
           user: action.payload.user,
           token: action.payload.token,
         })
       );
+
+      // Remove any older persistent session.
+      localStorage.removeItem("auth");
     },
 
     loginFailure: (state, action) => {
@@ -72,6 +75,7 @@ const authSlice = createSlice({
       state.user = null;
       state.token = null;
 
+      sessionStorage.removeItem("auth");
       localStorage.removeItem("auth");
     },
 
@@ -82,6 +86,7 @@ const authSlice = createSlice({
       state.token = null;
       state.error = null;
 
+      sessionStorage.removeItem("auth");
       localStorage.removeItem("auth");
     },
 
@@ -92,7 +97,7 @@ const authSlice = createSlice({
           ...action.payload,
         };
 
-        localStorage.setItem(
+        sessionStorage.setItem(
           "auth",
           JSON.stringify({
             user: state.user,

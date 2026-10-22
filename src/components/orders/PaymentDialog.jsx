@@ -85,7 +85,7 @@ function PaymentDialog({ open, handleClose, order }) {
     setError("");
 
     try {
-      const savedAuth = localStorage.getItem("auth");
+      const savedAuth = sessionStorage.getItem("auth");
       const auth = savedAuth ? JSON.parse(savedAuth) : null;
       const token = auth?.token;
 

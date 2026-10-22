@@ -28,7 +28,7 @@ const API_URL = (
 ).replace(/\/$/, "");
 
 function getAuthToken() {
-  const storedAuth = localStorage.getItem("auth");
+  const storedAuth = sessionStorage.getItem("auth");
 
   if (!storedAuth) return null;
 

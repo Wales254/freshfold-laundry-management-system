@@ -4,14 +4,14 @@ import API_BASE_URL from "../services/api";
 const API_URL = `${API_BASE_URL}/api/orders`;
 
 async function request(url, options = {}) {
-  // Read the saved authentication session.
+  // Read the authentication token from the current browser session.
   let token = null;
 
   try {
-    const savedAuth = localStorage.getItem("auth");
+    const savedAuth = sessionStorage.getItem("auth");
     const auth = savedAuth ? JSON.parse(savedAuth) : null;
     token = auth?.token || null;
-  } catch (error) {
+  } catch {
     console.error("Failed to read authentication session.");
   }
 

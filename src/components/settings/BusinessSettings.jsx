@@ -34,7 +34,7 @@ const MAX_LOGO_SIZE = 1024 * 1024; // 1 MB
 function getToken() {
   // FreshFold stores the session as { user, token } under "auth".
   try {
-    const savedAuth = localStorage.getItem("auth");
+    const savedAuth = sessionStorage.getItem("auth");
 
     if (savedAuth) {
       const parsedAuth = JSON.parse(savedAuth);

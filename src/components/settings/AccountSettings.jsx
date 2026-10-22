@@ -28,7 +28,7 @@ const EMPTY_ACCOUNT = {
 
 function getToken() {
   try {
-    const saved = localStorage.getItem("auth");
+    const saved = sessionStorage.getItem("auth");
 
     if (saved) {
       const parsed = JSON.parse(saved);
@@ -198,7 +198,7 @@ function AccountSettings() {
 
       // Keep the cached user's profile in step with the saved profile.
       try {
-        const saved = localStorage.getItem("auth");
+        const saved = sessionStorage.getItem("auth");
 
         if (saved) {
           const parsed = JSON.parse(saved);

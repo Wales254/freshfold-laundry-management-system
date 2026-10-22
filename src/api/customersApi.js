@@ -7,7 +7,7 @@ async function request(url, options = {}) {
   let token = null;
 
   try {
-    const savedAuth = localStorage.getItem("auth");
+    const savedAuth = sessionStorage.getItem("auth");
     const auth = savedAuth ? JSON.parse(savedAuth) : null;
 
     token = auth?.token || null;

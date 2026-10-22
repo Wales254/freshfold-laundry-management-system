@@ -33,7 +33,7 @@ const DEFAULT_SETTINGS = {
 };
 
 function getAuthToken() {
-  const storedAuth = localStorage.getItem("auth");
+  const storedAuth = sessionStorage.getItem("auth");
 
   if (!storedAuth) return null;
 

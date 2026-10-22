@@ -30,7 +30,7 @@ const DEFAULT_SETTINGS = {
 
 function getAuthToken() {
   try {
-    const savedAuth = localStorage.getItem("auth");
+    const savedAuth = sessionStorage.getItem("auth");
 
     if (!savedAuth) return null;
 
