@@ -1,4 +1,4 @@
-import { Grid, Paper, Typography, Box } from "@mui/material";
+import { Grid, Paper, Typography, Box, useTheme } from "@mui/material";
 import ShoppingBasketIcon from "@mui/icons-material/ShoppingBasket";
 import PeopleIcon from "@mui/icons-material/People";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
@@ -8,6 +8,9 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import { useSelector } from "react-redux";
 
 function DashboardCards() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+
   const orders = useSelector((state) => state.orders.orders);
 
   const totalOrders = orders.length;
@@ -31,7 +34,7 @@ function DashboardCards() {
       value: totalOrders.toLocaleString(),
       icon: <ShoppingBasketIcon />,
       color: "#1976d2",
-      background: "#eaf3ff",
+      background: isDark ? "#17365c" : "#eaf3ff",
       trend: "+8%",
     },
     {
@@ -39,7 +42,7 @@ function DashboardCards() {
       value: totalCustomers.toLocaleString(),
       icon: <PeopleIcon />,
       color: "#16835b",
-      background: "#e8f7ef",
+      background: isDark ? "#153f30" : "#e8f7ef",
       trend: "+5%",
     },
     {
@@ -49,15 +52,15 @@ function DashboardCards() {
       })}`,
       icon: <AttachMoneyIcon />,
       color: "#c77708",
-      background: "#fff4df",
+      background: isDark ? "#493519" : "#fff4df",
       trend: "+12%",
     },
     {
       title: "Pending Orders",
       value: pendingOrders.toLocaleString(),
       icon: <HourglassEmptyIcon />,
-      color: "#8051c7",
-      background: "#f2eaff",
+      color: "#a985e8",
+      background: isDark ? "#34244e" : "#f2eaff",
       trend: "-2%",
     },
   ];
@@ -78,15 +81,19 @@ function DashboardCards() {
               minWidth: 0,
               p: { xs: 2.25, sm: 2.5, md: 3 },
               borderRadius: 3,
-              border: "1px solid #e8edf4",
-              backgroundColor: "#ffffff",
-              boxShadow: "0 4px 18px rgba(30, 55, 90, 0.04)",
+              border: `1px solid ${theme.palette.divider}`,
+              backgroundColor: theme.palette.background.paper,
+              color: theme.palette.text.primary,
+              boxShadow: isDark
+                ? "0 4px 18px rgba(0, 0, 0, 0.16)"
+                : "0 4px 18px rgba(30, 55, 90, 0.04)",
               overflow: "hidden",
-              transition:
-                "transform 0.25s ease, box-shadow 0.25s ease",
+              transition: "transform 0.25s ease, box-shadow 0.25s ease",
               "&:hover": {
                 transform: "translateY(-4px)",
-                boxShadow: "0 12px 28px rgba(30, 55, 90, 0.10)",
+                boxShadow: isDark
+                  ? "0 12px 28px rgba(0, 0, 0, 0.28)"
+                  : "0 12px 28px rgba(30, 55, 90, 0.10)",
               },
             }}
           >
@@ -102,7 +109,7 @@ function DashboardCards() {
                 <Typography
                   variant="body2"
                   sx={{
-                    color: "#758198",
+                    color: theme.palette.text.secondary,
                     fontWeight: 600,
                     fontSize: { xs: "0.82rem", sm: "0.85rem" },
                     letterSpacing: "0.1px",
@@ -115,7 +122,7 @@ function DashboardCards() {
                   component="div"
                   sx={{
                     mt: 1.5,
-                    color: "#243247",
+                    color: theme.palette.text.primary,
                     fontWeight: 800,
                     fontSize:
                       card.title === "Total Revenue"
@@ -161,7 +168,7 @@ function DashboardCards() {
               sx={{
                 mt: 2.5,
                 pt: 1.75,
-                borderTop: "1px solid #f0f2f6",
+                borderTop: `1px solid ${theme.palette.divider}`,
                 display: "flex",
                 alignItems: "center",
                 flexWrap: "wrap",
@@ -176,8 +183,8 @@ function DashboardCards() {
                   px: 0.8,
                   py: 0.35,
                   borderRadius: 1.5,
-                  bgcolor: "#eaf7ef",
-                  color: "#218653",
+                  bgcolor: isDark ? "#153f30" : "#eaf7ef",
+                  color: isDark ? "#81d9a8" : "#218653",
                 }}
               >
                 <TrendingUpIcon sx={{ fontSize: 15 }} />
@@ -188,6 +195,7 @@ function DashboardCards() {
                     fontSize: "0.75rem",
                     fontWeight: 700,
                     lineHeight: 1.4,
+                    color: "inherit",
                   }}
                 >
                   {card.trend}
@@ -197,7 +205,7 @@ function DashboardCards() {
               <Typography
                 variant="caption"
                 sx={{
-                  color: "#8994a7",
+                  color: theme.palette.text.secondary,
                   fontSize: "0.75rem",
                 }}
               >
