@@ -1,7 +1,7 @@
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 
 import { fetchOrdersFromApi } from "./redux/orderSlice";
 
@@ -25,9 +25,17 @@ import Users from "./pages/Users";
 function App() {
   const dispatch = useDispatch();
 
+  // Check whether the user is authenticated.
+  const isAuthenticated = useSelector(
+    (state) => state.auth.isAuthenticated
+  );
+
+  // Fetch orders only after authentication is available.
   useEffect(() => {
-    dispatch(fetchOrdersFromApi());
-  }, [dispatch]);
+    if (isAuthenticated) {
+      dispatch(fetchOrdersFromApi());
+    }
+  }, [dispatch, isAuthenticated]);
 
   return (
     <BrowserRouter>
